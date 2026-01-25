@@ -1,0 +1,49 @@
+.english-renderer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.er-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--surface2);
+  overflow: hidden;
+}
+
+.er-section .panel-header {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--surface2);
+}
+
+.er-section .panel-body {
+  padding: 0.75rem;
+  overflow: auto;
+}
+
+.er-output {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.er-tree {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0;
+  font-style: italic;
+}

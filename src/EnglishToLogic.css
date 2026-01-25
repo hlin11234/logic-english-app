@@ -1,0 +1,76 @@
+.etl-section {
+  margin-bottom: 1.5rem;
+}
+
+.etl-divider {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--surface2);
+}
+
+.etl-subheader {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.etl-phrase-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.etl-phrase-note code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.etl-phrase-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.etl-textarea {
+  min-height: 80px;
+  font-family: var(--font-sans);
+}
+
+.etl-phrase-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.etl-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.etl-error {
+  padding: 0.4rem 0.5rem;
+  background: rgba(248, 81, 73, 0.1);
+  border-radius: var(--radius);
+}
+
+.etl-output {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.etl-logic {
+  margin: 0;
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--surface2);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.etl-copy {
+  align-self: flex-start;
+}

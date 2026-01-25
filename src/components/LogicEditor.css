@@ -1,0 +1,34 @@
+.logic-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.le-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.le-presets {
+  min-width: 180px;
+}
+
+.le-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.le-input {
+  width: 100%;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.le-error {
+  padding: 0.35rem 0.5rem;
+  background: rgba(248, 81, 73, 0.1);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}

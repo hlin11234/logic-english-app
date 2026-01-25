@@ -1,0 +1,99 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface2);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tabs button {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--muted);
+}
+.tabs button:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+.tabs button.active {
+  background: var(--surface2);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1rem;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--surface2);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--surface2);
+}
+
+.panel-body {
+  flex: 1;
+  padding: 0.75rem;
+  overflow: auto;
+  min-height: 0;
+}
+
+.symbol-bank-wrap {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface2);
+}
+
+.symbol-bank-wrap .panel-header {
+  margin: -0.75rem -0.75rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
