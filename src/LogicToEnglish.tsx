@@ -3,6 +3,7 @@ import { parse, getParseError } from './parser/Parser';
 import type { Expr } from './parser/Ast';
 import { LogicEditor } from './components/LogicEditor';
 import { EnglishRenderer } from './components/EnglishRenderer';
+import { LogicTraps } from './components/LogicTraps';
 
 export function LogicToEnglish() {
   const [input, setInput] = useState('∀x ( P(x) → Q(x) )');
@@ -41,6 +42,7 @@ export function LogicToEnglish() {
       <div className="panel">
         <div className="panel-header">Output</div>
         <div className="panel-body">
+          <LogicTraps ast={ast} input={input} />
           <EnglishRenderer ast={ast} parseError={!!parseError} />
         </div>
       </div>

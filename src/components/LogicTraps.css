@@ -1,0 +1,56 @@
+.logic-traps {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--surface2);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.logic-traps-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--surface2);
+  background: var(--surface1);
+}
+
+.logic-traps-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.logic-traps-content {
+  padding: 0.75rem 1rem;
+}
+
+.logic-trap-item {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  border-left: 3px solid;
+}
+
+.logic-trap-item:last-child {
+  margin-bottom: 0;
+}
+
+.logic-trap-info {
+  background: rgba(33, 150, 243, 0.1);
+  border-left-color: #2196f3;
+}
+
+.logic-trap-warning {
+  background: rgba(255, 152, 0, 0.1);
+  border-left-color: #ff9800;
+}
+
+.logic-trap-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.4rem;
+}
+
+.logic-trap-message {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
