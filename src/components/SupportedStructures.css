@@ -1,0 +1,108 @@
+.supported-structures {
+  margin-top: 1rem;
+  border: 1px solid var(--surface2);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.supported-structures-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background-color 0.2s;
+}
+
+.supported-structures-header:hover {
+  background: var(--surface1);
+}
+
+.supported-structures-title {
+  flex: 1;
+  text-align: left;
+}
+
+.supported-structures-toggle {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: 0.5rem;
+}
+
+.supported-structures-content {
+  padding: 1rem;
+  border-top: 1px solid var(--surface2);
+}
+
+.supported-structures-section {
+  margin-bottom: 1.5rem;
+}
+
+.supported-structures-section:last-child {
+  margin-bottom: 0;
+}
+
+.supported-structures-category {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 0.75rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.supported-structures-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.supported-structures-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--surface2);
+}
+
+.supported-structures-item:last-child {
+  border-bottom: none;
+}
+
+.supported-structures-example {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface1);
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius);
+  word-break: break-word;
+}
+
+.supported-structures-copy {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  background: var(--surface2);
+  border: 1px solid var(--surface3);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.supported-structures-copy:hover {
+  background: var(--surface3);
+  border-color: var(--surface4);
+}
+
+.supported-structures-copy:active {
+  background: var(--surface4);
+}

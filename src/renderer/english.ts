@@ -53,26 +53,11 @@ function renderQuantifier(e: { q: 'forall' | 'exists'; var: string; domain?: { k
       const rightPhrase = getPhraseForPredicate(right.name);
       
       if (leftPhrase && rightPhrase) {
-        // Natural condition phrasing
+        // Natural condition phrasing: ∀x (A(x) → B(x)) means "A is sufficient for B"
         const primary = `For every ${varName}, if ${varName} ${leftPhrase}, then ${varName} ${rightPhrase}.`;
-        const alternate = `${leftPhrase} is sufficient for ${rightPhrase}.`;
-        return isTop ? `${primary}\n(Alternate: ${alternate})` : primary;
-      }
-    }
-    
-    // Also check reversed pattern: ∀x (B(x) → A(x)) means "A is necessary for B"
-    if (left.kind === 'predicate' && right.kind === 'predicate' && 
-        left.args.length === 1 && right.args.length === 1 &&
-        left.args[0] === varName && right.args[0] === varName) {
-      
-      const leftPhrase = getPhraseForPredicate(left.name);
-      const rightPhrase = getPhraseForPredicate(right.name);
-      
-      if (leftPhrase && rightPhrase) {
-        // Reversed: right is necessary for left
-        const primary = `For every ${varName}, if ${varName} ${leftPhrase}, then ${varName} ${rightPhrase}.`;
-        const alternate = `${rightPhrase} is necessary for ${leftPhrase}.`;
-        return isTop ? `${primary}\n(Alternate: ${alternate})` : primary;
+        const alternate1 = `${leftPhrase} is sufficient for ${rightPhrase}.`;
+        const alternate2 = `${rightPhrase} is necessary for ${leftPhrase}.`;
+        return isTop ? `${primary}\n(Alternate: ${alternate1} Or: ${alternate2})` : primary;
       }
     }
   }

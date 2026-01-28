@@ -5,6 +5,7 @@ import { englishToAst } from './englishTemplates/astFromEnglish';
 import { exprToString } from './parser/exprToString';
 import { Composer } from './components/Composer';
 import { SymbolBank } from './components/SymbolBank';
+import SupportedStructures from './components/SupportedStructures';
 import './EnglishToLogic.css';
 
 const EXAMPLES = [
@@ -196,6 +197,9 @@ export function EnglishToLogic() {
               </div>
               {error && <div className="etl-error error-msg">{error}</div>}
             </div>
+          </div>
+          <div className="etl-section etl-divider">
+            <SupportedStructures />
           </div>
           <div className="symbol-bank-wrap">
             <div className="panel-header">Symbol Bank</div>
