@@ -1,6 +1,7 @@
 import { toEnglish } from '../renderer/english';
 import type { Expr } from '../parser/Ast';
 import { astToTree } from '../parser/astDisplay';
+import { StepByStepExplanation } from './StepByStepExplanation';
 import './EnglishRenderer.css';
 
 interface EnglishRendererProps {
@@ -52,6 +53,7 @@ export function EnglishRenderer({ ast, parseError }: EnglishRendererProps) {
 
   return (
     <div className="english-renderer">
+      <StepByStepExplanation ast={ast} />
       <div className="er-section">
         <div className="panel-header">English</div>
         <div className="panel-body">
