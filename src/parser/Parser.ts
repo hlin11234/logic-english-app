@@ -8,9 +8,11 @@ export class ParseError extends Error {
   constructor(
     message: string,
     public readonly line: number,
-    public readonly column: number
+    public readonly column: number,
+    public readonly expected?: TokenType[],
+    public readonly got?: TokenType
   ) {
-    super(`${message} at line ${line}, column ${column}`);
+    super(message);
     this.name = 'ParseError';
   }
 }
@@ -42,16 +44,35 @@ class ParserState {
     return t;
   }
 
-  private expect(type: TokenType): Token {
+  private expect(type: TokenType, expectedAlternatives?: TokenType[]): Token {
     if (!this.at(type)) {
       const t = this.current;
+      const expected = expectedAlternatives ? [type, ...expectedAlternatives] : [type];
       throw new ParseError(
-        `Expected ${type}, got ${t.type}`,
+        `Expected ${formatExpectedTokens(expected)}, got ${t.type}`,
         t.line,
-        t.column
+        t.column,
+        expected,
+        t.type
       );
     }
     return this.advance();
+  }
+
+  private expectOneOf(types: TokenType[]): Token {
+    const t = this.current;
+    for (const type of types) {
+      if (this.at(type)) {
+        return this.advance();
+      }
+    }
+    throw new ParseError(
+      `Expected one of: ${formatExpectedTokens(types)}, got ${t.type}`,
+      t.line,
+      t.column,
+      types,
+      t.type
+    );
   }
 
   parseExpr(): Expr {
@@ -122,7 +143,14 @@ class ParserState {
           const domainToken = this.advance();
           domain = { kind: 'domain', name: domainToken.value };
         } else {
-          throw new ParseError('Expected domain symbol after ∈', this.current.line, this.current.column);
+          const t = this.current;
+          throw new ParseError(
+            'Expected domain symbol after ∈',
+            t.line,
+            t.column,
+            ['domain'],
+            t.type
+          );
         }
       }
       
@@ -154,7 +182,13 @@ class ParserState {
         return { kind: 'predicate', name: left.name, args: [left.name] };
       }
       const t = this.current;
-      throw new ParseError(`Unexpected term in atom`, t.line, t.column);
+      throw new ParseError(
+        `Unexpected term in atom`,
+        t.line,
+        t.column,
+        ['lparen', 'var', 'ident'],
+        t.type
+      );
     }
 
     if (this.at('lparen')) {
@@ -169,7 +203,13 @@ class ParserState {
     }
 
     const t = this.current;
-    throw new ParseError(`Unexpected token: ${t.type}`, t.line, t.column);
+    throw new ParseError(
+      `Unexpected token: ${t.type}`,
+      t.line,
+      t.column,
+      ['forall', 'exists', 'var', 'ident', 'lparen'],
+      t.type
+    );
   }
 
   private canStartTerm(): boolean {
@@ -211,7 +251,13 @@ class ParserState {
       return { kind: 'var', name };
     }
     const t = this.current;
-    throw new ParseError(`Expected term, got ${t.type}`, t.line, t.column);
+    throw new ParseError(
+      `Expected term, got ${t.type}`,
+      t.line,
+      t.column,
+      ['var', 'num', 'ident', 'lparen'],
+      t.type
+    );
   }
 
   private parseRelOp(): Expr['kind'] extends 'relation' ? Expr['op'] : null {
@@ -252,7 +298,14 @@ class ParserState {
 
   private parsePredicateFromName(leftTerm: Term): Expr {
     if (leftTerm.kind !== 'var') {
-      throw new ParseError('Predicate name must be a variable', this.current.line, this.current.column);
+      const t = this.current;
+      throw new ParseError(
+        'Predicate name must be a variable',
+        t.line,
+        t.column,
+        ['var'],
+        t.type
+      );
     }
     const name = leftTerm.name;
     this.advance(); // consume '('
@@ -283,13 +336,63 @@ class ParserState {
   }
 }
 
-export function getParseError(input: string): { message: string; line: number; column: number } | null {
+function formatExpectedTokens(types: TokenType[]): string {
+  if (types.length === 0) return 'nothing';
+  if (types.length === 1) return types[0]!;
+  if (types.length === 2) return `${types[0]} or ${types[1]}`;
+  return `${types.slice(0, -1).join(', ')}, or ${types[types.length - 1]}`;
+}
+
+function lineColumnToIndex(input: string, line: number, column: number): number {
+  let currentLine = 1;
+  let currentCol = 1;
+  let index = 0;
+  
+  while (index < input.length && (currentLine < line || (currentLine === line && currentCol < column))) {
+    if (input[index] === '\n') {
+      currentLine++;
+      currentCol = 1;
+    } else {
+      currentCol++;
+    }
+    index++;
+  }
+  
+  return index;
+}
+
+export function getParseError(input: string): { 
+  message: string; 
+  line: number; 
+  column: number;
+  expected?: TokenType[];
+  got?: TokenType;
+  charIndex?: number;
+} | null {
   try {
     parse(input);
     return null;
   } catch (e) {
-    if (e instanceof ParseError) return { message: e.message, line: e.line, column: e.column };
-    if (e instanceof TokenizerError) return { message: e.message, line: e.line, column: e.column };
+    if (e instanceof ParseError) {
+      const charIndex = lineColumnToIndex(input, e.line, e.column);
+      return { 
+        message: e.message, 
+        line: e.line, 
+        column: e.column,
+        expected: e.expected,
+        got: e.got,
+        charIndex,
+      };
+    }
+    if (e instanceof TokenizerError) {
+      const charIndex = lineColumnToIndex(input, e.line, e.column);
+      return { 
+        message: e.message, 
+        line: e.line, 
+        column: e.column,
+        charIndex,
+      };
+    }
     throw e;
   }
 }

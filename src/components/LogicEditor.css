@@ -24,11 +24,83 @@
   width: 100%;
   font-size: 0.95rem;
   line-height: 1.5;
+  font-family: var(--font-mono);
+}
+
+.le-input-error {
+  border-color: rgba(248, 81, 73, 0.5);
 }
 
 .le-error {
-  padding: 0.35rem 0.5rem;
+  padding: 0.75rem;
   background: rgba(248, 81, 73, 0.1);
+  border: 1px solid rgba(248, 81, 73, 0.3);
   border-radius: var(--radius);
   font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.le-error-snippet {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: var(--surface1);
+  border-radius: var(--radius);
+  border: 1px solid var(--surface2);
+}
+
+.le-error-code {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: block;
+  line-height: 1.6;
+}
+
+.le-error-highlight {
+  background: rgba(248, 81, 73, 0.3);
+  border-bottom: 2px solid #f85149;
+  padding: 0 2px;
+  font-weight: 600;
+}
+
+.le-error-location {
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.le-error-char {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.le-error-message {
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.le-error-expected {
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+
+.le-error-expected code {
+  background: var(--surface2);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.le-error-got {
+  color: var(--text);
+}
+
+.le-error-got code {
+  background: rgba(248, 81, 73, 0.2);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: #f85149;
 }

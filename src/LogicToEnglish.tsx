@@ -7,13 +7,27 @@ import { LogicTraps } from './components/LogicTraps';
 
 export function LogicToEnglish() {
   const [input, setInput] = useState('∀x ( P(x) → Q(x) )');
-  const [parseError, setParseError] = useState<{ line: number; column: number; message: string } | null>(null);
+  const [parseError, setParseError] = useState<{ 
+    line: number; 
+    column: number; 
+    message: string;
+    expected?: string[];
+    got?: string;
+    charIndex?: number;
+  } | null>(null);
   const [ast, setAst] = useState<Expr | null>(null);
 
   useEffect(() => {
     const err = getParseError(input);
     if (err) {
-      setParseError({ line: err.line, column: err.column, message: err.message });
+      setParseError({ 
+        line: err.line, 
+        column: err.column, 
+        message: err.message,
+        expected: err.expected,
+        got: err.got,
+        charIndex: err.charIndex,
+      });
       setAst(null);
     } else {
       setParseError(null);
