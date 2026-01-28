@@ -8,6 +8,8 @@ import type { MatchResult, Token } from './match';
 import { normalizeEnglish, tokenize, matchAnyTemplate } from './match';
 import { ALL_TEMPLATES } from './templates';
 import { normalizeDomain, normalizeRelation, getVariableHint, getPredicateForPhrase } from './dataset';
+import { normalizeEnglishTokens } from './normalize';
+import { parseClause } from './parseEnglishExpr';
 
 /**
  * Dictionary mapping English phrases to predicate names.
@@ -937,8 +939,9 @@ function parseClause(tokens: Token[], defaultVar: string, allTemplates = ALL_TEM
  */
 /**
  * Parse tokens into a Term (variable, number, or domain reference).
+ * Exported for use in parseEnglishExpr.ts
  */
-function parseTerm(tokens: Token[]): Term | null {
+export function parseTerm(tokens: Token[]): Term | null {
   if (tokens.length === 0) {
     return null;
   }
@@ -1020,20 +1023,34 @@ function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
 
 /**
  * Main entry point: convert English text to AST.
- * Uses unified parseEnglishExpr for recursive parsing.
+ * Uses flexible semantic pattern matching.
  */
 export function englishToAst(englishText: string, dictionary?: PhraseDictionary): Expr | null {
   if (dictionary) {
     setPhraseDictionary(dictionary);
   }
 
-  const normalized = normalizeEnglish(englishText);
-  const tokens = tokenize(normalized);
+  try {
+    // Use new flexible normalization
+    const tokens = normalizeEnglishTokens(englishText);
 
-  if (tokens.length === 0) {
-    return null;
+    if (tokens.length === 0) {
+      return null;
+    }
+
+    // Use semantic pattern matching
+    const result = parseClause(tokens, { defaultVar: 'x' });
+    if (!result) {
+      // This shouldn't happen as parseClause throws, but just in case
+      return null;
+    }
+    return result.expr;
+  } catch (error) {
+    // Re-throw with context if it's already an Error with a message
+    if (error instanceof Error) {
+      throw error;
+    }
+    // Otherwise, provide a generic error
+    throw new Error(`Could not parse: "${englishText}". Try expressing it as a quantifier, relation, or predicate.`);
   }
-
-  // Use unified parseEnglishExpr which handles all structures recursively
-  return parseEnglishExpr(tokens, 'x', ALL_TEMPLATES);
 }

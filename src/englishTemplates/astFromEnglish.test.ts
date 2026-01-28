@@ -291,3 +291,125 @@ describe('English → Logic: Nested Quantifiers', () => {
     }
   });
 });
+
+describe('English → Logic: Flexible Parsing and Variable Names', () => {
+  it('preserves user-specified variable name "t" in "for all real numbers t"', () => {
+    const ast = englishToAst('for all real numbers t, t is greater than 0');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.var).toBe('t');
+      expect(ast.domain?.name).toBe('ℝ');
+    }
+  });
+
+  it('preserves user-specified variable name "count" in "there exists integer count"', () => {
+    const ast = englishToAst('there exists integer count such that count is greater than 0');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.var).toBe('count');
+      expect(ast.domain?.name).toBe('ℤ');
+    }
+  });
+
+  it('preserves variable name "k" in "for every integer k"', () => {
+    const ast = englishToAst('for every integer k, k is positive or k is negative');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.var).toBe('k');
+    }
+  });
+
+  it('handles "given any integer n" as universal quantifier', () => {
+    const ast = englishToAst('given any integer n, n is not equal to n+1');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('forall');
+      expect(ast.var).toBe('n');
+      expect(ast.domain?.name).toBe('ℤ');
+    }
+  });
+
+  it('handles "we can find" as existential quantifier', () => {
+    const ast = englishToAst('we can find a real number y such that y is greater than x');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('exists');
+    }
+  });
+
+  it('handles "for all real numbers x there exists y such that x < y" (no comma)', () => {
+    const ast = englishToAst('for all real numbers x there exists y such that x < y');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.var).toBe('x');
+      expect(ast.body.kind).toBe('quantifier');
+      if (ast.body.kind === 'quantifier') {
+        expect(ast.body.var).toBe('y');
+      }
+    }
+  });
+
+  it('handles "being a tomato guarantees being a fruit" as sufficient condition', () => {
+    const ast = englishToAst('being a tomato guarantees being a fruit');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('forall');
+      expect(ast.body.kind).toBe('binary');
+      if (ast.body.kind === 'binary') {
+        expect(ast.body.op).toBe('impl');
+      }
+    }
+  });
+
+  it('handles "having a ticket is required for entry" as necessary condition', () => {
+    const ast = englishToAst('having a ticket is required for entry');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('forall');
+      expect(ast.body.kind).toBe('binary');
+      if (ast.body.kind === 'binary') {
+        expect(ast.body.op).toBe('impl');
+      }
+    }
+  });
+
+  it('handles "whenever p, q" as implication', () => {
+    const ast = englishToAst('whenever p, q');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'binary') {
+      expect(ast.op).toBe('impl');
+    }
+  });
+
+  it('handles "for every foo, foo is greater than 0 or foo equals 0"', () => {
+    const ast = englishToAst('for every foo, foo is greater than 0 or foo equals 0');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.var).toBe('foo');
+      expect(ast.body.kind).toBe('binary');
+      if (ast.body.kind === 'binary') {
+        expect(ast.body.op).toBe('or');
+      }
+    }
+  });
+
+  it('handles "all real numbers x are positive or negative"', () => {
+    const ast = englishToAst('all real numbers x are positive or negative');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('forall');
+      expect(ast.var).toBe('x');
+      expect(ast.domain?.name).toBe('ℝ');
+    }
+  });
+
+  it('handles "any integer n is either even or odd"', () => {
+    const ast = englishToAst('any integer n is either even or odd');
+    expect(ast).not.toBeNull();
+    if (ast && ast.kind === 'quantifier') {
+      expect(ast.q).toBe('forall');
+      expect(ast.var).toBe('n');
+      expect(ast.domain?.name).toBe('ℤ');
+    }
+  });
+});
