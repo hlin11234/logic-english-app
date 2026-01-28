@@ -5,7 +5,7 @@
 
 import type { Expr, Term, Domain } from '../parser/Ast';
 import type { NormalizedToken } from './normalize';
-import { normalizeDomain, normalizeRelation, getPredicateForPhrase } from './dataset';
+import { normalizeDomain, getPredicateForPhrase } from './dataset';
 import { parseTerm } from './astFromEnglish';
 
 /**
@@ -44,9 +44,7 @@ export function extractQuantifierInfo(
     i++;
   }
 
-  // Try to find domain phrase
-  // Look for domain phrases: "real numbers", "integers", etc.
-  const domainPhrases: string[] = [];
+  // Try to find domain phrase: "real numbers", "integers", etc.
   let domainEnd = i;
   
   // Try to match known domain phrases (1-3 words)
@@ -179,6 +177,8 @@ export function parseRelationExpr(
   tokens: NormalizedToken[],
   context: ParseContext = {}
 ): { expr: Expr; remainingTokens: NormalizedToken[] } | null {
+  // context reserved for future use (e.g., default variable), currently unused
+  void context;
   if (tokens.length < 3) return null;
 
   const relOps = ['<', '>', '≤', '≥', '=', '≠', '∈', '∉'];

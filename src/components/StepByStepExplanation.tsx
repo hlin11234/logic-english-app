@@ -134,8 +134,6 @@ function generateExplanation(expr: Expr, startStep: number): ExplanationStep[] {
         // For binary operators, explain left, then right, then the combination
         explain(expr.left, depth, false);
         explain(expr.right, depth, false);
-        
-        const opSymbol = expr.op === 'and' ? '∧' : expr.op === 'or' ? '∨' : expr.op === 'impl' ? '→' : '↔';
         let opExplanation = '';
         
         switch (expr.op) {

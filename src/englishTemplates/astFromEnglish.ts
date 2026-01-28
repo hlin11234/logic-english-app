@@ -3,13 +3,11 @@
  * Handles recursive clause parsing and predicate mapping.
  */
 
-import type { Expr, Term, Domain } from '../parser/Ast';
+import type { Expr, Term } from '../parser/Ast';
 import type { MatchResult, Token } from './match';
-import { normalizeEnglish, tokenize, matchAnyTemplate } from './match';
 import { ALL_TEMPLATES } from './templates';
 import { normalizeDomain, normalizeRelation, getVariableHint, getPredicateForPhrase } from './dataset';
-import { normalizeEnglishTokens } from './normalize';
-import { parseClause } from './parseEnglishExpr';
+import { matchAnyTemplate, normalizeEnglish, tokenize } from './match';
 
 /**
  * Dictionary mapping English phrases to predicate names.
@@ -164,12 +162,6 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       // Parse right term (variable, number, or domain)
       const rightTerm = parseTerm(rightTokens);
       if (!rightTerm) {
-        return null;
-      }
-
-      // Validate relation operator
-      const validOps: Expr['kind'] extends 'relation' ? Expr['op'][] : never = ['<', '≤', '>', '≥', '=', '≠', '∈', '∉'];
-      if (!validOps.includes(relOp as any)) {
         return null;
       }
 
@@ -676,31 +668,14 @@ function parseEnglishExpr(tokens: Token[], defaultVar: string = 'x', allTemplate
     return relExpr;
   }
 
-  // Step 3: Try templates for binary operators and other patterns BEFORE manual parsing
-  // This ensures templates like TNS1-TNS8, TCOND1-4, etc. are tried first
-  const clauseTemplates = allTemplates.filter((t) => 
-    t.id !== 'T1' && t.id !== 'T2' && t.id !== 'TQ1' && t.id !== 'TQ2' && t.id !== 'TR1'
-  );
-  const match = matchAnyTemplate(tokens, clauseTemplates);
-  if (match) {
-    const expr = astFromMatch(match, allTemplates);
-    if (expr) {
-      // For implicit templates, replace 'x' with defaultVar
-      if (match.templateId === 'T5_IMPLICIT' || match.templateId === 'T6_IMPLICIT') {
-        return replaceVariable(expr, 'x', defaultVar);
-      }
-      return expr;
-    }
-  }
-
-  // Step 4: Parse binary operators manually (fallback if templates didn't match)
+  // Step 3: Parse binary operators manually (fallback if templates didn't match)
   // Parse from lowest to highest precedence (IFF < IMP < OR < AND)
   const binaryExpr = parseBinaryOperators(tokens, defaultVar, allTemplates);
   if (binaryExpr) {
     return binaryExpr;
   }
 
-  // Step 5: Try negation
+  // Step 4: Try negation
   if (tokens[0] === 'not' || tokens[0] === 'NOT') {
     const rest = tokens.slice(1);
     const body = parseEnglishExpr(rest, defaultVar, allTemplates);
@@ -709,7 +684,7 @@ function parseEnglishExpr(tokens: Token[], defaultVar: string = 'x', allTemplate
     }
   }
 
-  // Step 6: Fallback to predicate (only if nothing else matched)
+  // Step 5: Fallback to predicate (only if nothing else matched)
   // Only create predicates for single tokens or very simple cases
   // This prevents creating malformed predicates from complex clauses
   if (tokens.length === 1) {
@@ -733,12 +708,11 @@ function parseEnglishExpr(tokens: Token[], defaultVar: string = 'x', allTemplate
  * Parse quantifier from tokens.
  * Handles: "for all <domain> <var>, <body>" and "there exists <domain> <var> such that <body>"
  */
-function parseQuantifier(tokens: Token[], defaultVar: string, allTemplates: typeof ALL_TEMPLATES): Expr | null {
+function parseQuantifier(tokens: Token[], _defaultVar: string, allTemplates: typeof ALL_TEMPLATES): Expr | null {
   // Try typed quantifier templates first
   const typedQuantTemplates = allTemplates.filter((t) => t.id === 'TQ1' || t.id === 'TQ2');
   const match = matchAnyTemplate(tokens, typedQuantTemplates);
   if (match) {
-    // astFromMatch for TQ1/TQ2 will call parseEnglishExpr on the body recursively
     const expr = astFromMatch(match, allTemplates);
     if (expr && expr.kind === 'quantifier') {
       return expr;
@@ -867,7 +841,7 @@ function parseBinaryOperators(tokens: Token[], defaultVar: string, allTemplates:
 
   // Parse IMP (ONLYIF, IF...THEN, etc.)
   const impIndex = findImplication(tokens);
-  if (impIndex !== -1) {
+  if (impIndex) {
     const left = tokens.slice(0, impIndex.leftEnd);
     const right = tokens.slice(impIndex.rightStart);
     const leftExpr = parseEnglishExpr(left, defaultVar, allTemplates);
@@ -927,13 +901,6 @@ function findImplication(tokens: Token[]): { leftEnd: number; rightStart: number
 }
 
 /**
- * Legacy function for backward compatibility
- */
-function parseClause(tokens: Token[], defaultVar: string, allTemplates = ALL_TEMPLATES): Expr | null {
-  return parseEnglishExpr(tokens, defaultVar, allTemplates);
-}
-
-/**
  * Replace variable 'x' with newVar in an expression.
  * Used to ensure clauses use the correct variable from outer quantifiers.
  */
@@ -969,37 +936,11 @@ export function parseTerm(tokens: Token[]): Term | null {
   return { kind: 'var', name: tokens[0]! };
 }
 
-function replaceVariable(expr: Expr, oldVar: string, newVar: string): Expr {
-  switch (expr.kind) {
-    case 'predicate':
-      return {
-        ...expr,
-        args: expr.args.map((arg) => (arg === oldVar ? newVar : arg)),
-      };
-    case 'quantifier':
-      return {
-        ...expr,
-        var: expr.var === oldVar ? newVar : expr.var,
-        body: replaceVariable(expr.body, oldVar, newVar),
-      };
-    case 'relation':
-      return {
-        ...expr,
-        left: replaceTermVariable(expr.left, oldVar, newVar),
-        right: replaceTermVariable(expr.right, oldVar, newVar),
-      };
-    case 'negation':
-      return {
-        ...expr,
-        body: replaceVariable(expr.body, oldVar, newVar),
-      };
-    case 'binary':
-      return {
-        ...expr,
-        left: replaceVariable(expr.left, oldVar, newVar),
-        right: replaceVariable(expr.right, oldVar, newVar),
-      };
-  }
+/**
+ * Legacy wrapper: parse a clause using parseEnglishExpr.
+ */
+function parseClause(tokens: Token[], defaultVar: string, allTemplates = ALL_TEMPLATES): Expr | null {
+  return parseEnglishExpr(tokens, defaultVar, allTemplates);
 }
 
 function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
@@ -1023,34 +964,19 @@ function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
 
 /**
  * Main entry point: convert English text to AST.
- * Uses flexible semantic pattern matching.
+ * Uses unified parseEnglishExpr for recursive parsing.
  */
 export function englishToAst(englishText: string, dictionary?: PhraseDictionary): Expr | null {
   if (dictionary) {
     setPhraseDictionary(dictionary);
   }
 
-  try {
-    // Use new flexible normalization
-    const tokens = normalizeEnglishTokens(englishText);
+  const normalized = normalizeEnglish(englishText);
+  const tokens = tokenize(normalized);
 
-    if (tokens.length === 0) {
-      return null;
-    }
-
-    // Use semantic pattern matching
-    const result = parseClause(tokens, { defaultVar: 'x' });
-    if (!result) {
-      // This shouldn't happen as parseClause throws, but just in case
-      return null;
-    }
-    return result.expr;
-  } catch (error) {
-    // Re-throw with context if it's already an Error with a message
-    if (error instanceof Error) {
-      throw error;
-    }
-    // Otherwise, provide a generic error
-    throw new Error(`Could not parse: "${englishText}". Try expressing it as a quantifier, relation, or predicate.`);
+  if (tokens.length === 0) {
+    return null;
   }
+
+  return parseEnglishExpr(tokens, 'x', ALL_TEMPLATES);
 }

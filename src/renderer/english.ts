@@ -80,8 +80,8 @@ function renderQuantifier(e: { q: 'forall' | 'exists'; var: string; domain?: { k
  * This is a simple implementation - in a full system, we'd maintain a bidirectional map
  */
 function getPhraseForPredicate(predicateName: string): string | null {
-  // For now, return null - we'd need to maintain a reverse mapping
-  // The renderer will fall back to standard predicate rendering
+  // Currently unused; placeholder for future reverse mappings
+  void predicateName;
   return null;
 }
 

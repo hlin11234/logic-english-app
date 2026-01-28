@@ -45,6 +45,9 @@ function detectTraps(ast: Expr | null, input: string): TrapWarning[] {
     return warnings;
   }
 
+  // Currently we don't use the original input, but keep it for future heuristics
+  void input;
+
   // 1. Detect negated quantifiers: ¬∀x or ¬∃x (recursively)
   checkNegatedQuantifiers(ast, warnings);
 

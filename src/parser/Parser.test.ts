@@ -1,6 +1,5 @@
 /// <reference types="vitest/globals" />
 import { parse, ParseError } from './Parser';
-import type { Expr } from './Ast';
 
 describe('Parser', () => {
   it('parses simple predicate', () => {

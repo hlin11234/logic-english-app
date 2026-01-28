@@ -17,6 +17,9 @@ export function astToTree(ast: Expr, indent = 0): string {
       );
     case 'predicate':
       return `${pad}${ast.name}(${ast.args.join(', ')})`;
+    default:
+      // Exhaustiveness guard
+      return pad;
   }
 }
 

@@ -44,7 +44,8 @@ class ParserState {
     return t;
   }
 
-  private expect(type: TokenType, expectedAlternatives?: TokenType[]): Token {
+  // Expect the current token to have the given type; otherwise throw a ParseError
+  expect(type: TokenType, expectedAlternatives?: TokenType[]): Token {
     if (!this.at(type)) {
       const t = this.current;
       const expected = expectedAlternatives ? [type, ...expectedAlternatives] : [type];
@@ -57,22 +58,6 @@ class ParserState {
       );
     }
     return this.advance();
-  }
-
-  private expectOneOf(types: TokenType[]): Token {
-    const t = this.current;
-    for (const type of types) {
-      if (this.at(type)) {
-        return this.advance();
-      }
-    }
-    throw new ParseError(
-      `Expected one of: ${formatExpectedTokens(types)}, got ${t.type}`,
-      t.line,
-      t.column,
-      types,
-      t.type
-    );
   }
 
   parseExpr(): Expr {
@@ -171,7 +156,7 @@ class ParserState {
       const relOp = this.parseRelOp();
       if (relOp) {
         const right = this.parseTerm();
-        return { kind: 'relation', op: relOp, left, right };
+        return { kind: 'relation', op: relOp as any, left, right };
       }
       // Not a relation, try predicate
       if (this.at('lparen')) {
@@ -260,7 +245,7 @@ class ParserState {
     );
   }
 
-  private parseRelOp(): Expr['kind'] extends 'relation' ? Expr['op'] : null {
+  private parseRelOp(): '<' | '≤' | '>' | '≥' | '=' | '≠' | '∈' | '∉' | null {
     if (this.at('lt')) {
       this.advance();
       return '<';

@@ -203,7 +203,6 @@ function BuilderForm({ value, onChange, depth }: BuilderFormProps) {
   }
 
   if (value.type === 'predicate') {
-    const argCount = value.args.length;
     return (
       <div className="builder-form pred" style={{ paddingLeft: depth * 12 }}>
         <div className="bf-row">
