@@ -1,5 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { normalizeToUnicode, formatSpacing } from '../utils/normalize';
+import { parse } from '../parser/Parser';
+import { exprToString } from '../parser/exprToString';
 import { PRESETS } from '../data/presets';
 import { SymbolBank } from './SymbolBank';
 import './LogicEditor.css';
@@ -47,8 +49,17 @@ export function LogicEditor({
   }, [value, onChange]);
 
   const format = useCallback(() => {
+    if (!parseError) {
+      try {
+        const { ast } = parse(value);
+        onChange(exprToString(ast));
+        return;
+      } catch {
+        /* fall through to text-based format */
+      }
+    }
     onChange(formatSpacing(value));
-  }, [value, onChange]);
+  }, [value, onChange, parseError]);
 
   const loadPreset = useCallback(
     (formula: string) => {
@@ -80,10 +91,10 @@ export function LogicEditor({
           ))}
         </select>
         <div className="le-actions">
-          <button type="button" onClick={normalize} title="Convert ASCII operators to Unicode">
+          <button type="button" onClick={normalize} title="-> →, <-> ↔, <= ≤, >= ≥, != ≠">
             Normalize
           </button>
-          <button type="button" onClick={format} title="Pretty parentheses spacing">
+          <button type="button" onClick={format} title="Consistent spacing and parentheses; no semantic changes">
             Format
           </button>
         </div>
