@@ -294,11 +294,11 @@ class ParserState {
     }
     const name = leftTerm.name;
     this.advance(); // consume '('
-    const args: string[] = [];
-    args.push(this.expect('var').value);
+    const args: Term[] = [];
+    args.push(this.parseTerm());
     while (this.at('comma')) {
       this.advance();
-      args.push(this.expect('var').value);
+      args.push(this.parseTerm());
     }
     this.expect('rparen');
     return { kind: 'predicate', name, args };
@@ -307,14 +307,18 @@ class ParserState {
   private parsePredicate(): Expr {
     const name = (this.at('ident') ? this.expect('ident') : this.expect('var')).value;
     if (!this.at('lparen')) {
-      return { kind: 'predicate', name, args: [name] };
+      return {
+        kind: 'predicate',
+        name,
+        args: [{ kind: 'var', name }],
+      };
     }
     this.advance();
-    const args: string[] = [];
-    args.push(this.expect('var').value);
+    const args: Term[] = [];
+    args.push(this.parseTerm());
     while (this.at('comma')) {
       this.advance();
-      args.push(this.expect('var').value);
+      args.push(this.parseTerm());
     }
     this.expect('rparen');
     return { kind: 'predicate', name, args };

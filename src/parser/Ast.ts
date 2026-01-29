@@ -7,10 +7,15 @@ export interface Domain {
   name: string; // "ℝ" | "ℤ" | "ℚ" | "ℕ" | "ℂ" | string
 }
 
-export type Term = VarTerm | NumTerm | FuncTerm | ParenTerm;
+export type Term = VarTerm | NumTerm | FuncTerm | ParenTerm | ConstTerm;
 
 export interface VarTerm {
   kind: 'var';
+  name: string;
+}
+
+export interface ConstTerm {
+  kind: 'const';
   name: string;
 }
 
@@ -41,7 +46,7 @@ export interface Quantifier {
 export interface Predicate {
   kind: 'predicate';
   name: string;
-  args: string[];
+  args: Term[];
 }
 
 export interface Relation {

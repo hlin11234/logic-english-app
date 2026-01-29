@@ -1,12 +1,14 @@
 /** Pretty-print AST as indented tree. */
 
-import type { Expr } from './Ast';
+import type { Expr, Term } from './Ast';
 
 export function astToTree(ast: Expr, indent = 0): string {
   const pad = '  '.repeat(indent);
   switch (ast.kind) {
     case 'quantifier':
-      return `${pad}${ast.q === 'forall' ? '∀' : '∃'}${ast.var}\n${astToTree(ast.body, indent + 1)}`;
+      return `${pad}${ast.q === 'forall' ? '∀' : '∃'}${ast.var}${
+        ast.domain ? ` ∈ ${ast.domain.name}` : ''
+      }\n${astToTree(ast.body, indent + 1)}`;
     case 'negation':
       return `${pad}¬\n${astToTree(ast.body, indent + 1)}`;
     case 'binary':
@@ -16,10 +18,26 @@ export function astToTree(ast: Expr, indent = 0): string {
         `${astToTree(ast.right, indent + 1)}`
       );
     case 'predicate':
-      return `${pad}${ast.name}(${ast.args.join(', ')})`;
+      return `${pad}${ast.name}(${ast.args.map(termToString).join(', ')})`;
+    case 'relation':
+      return `${pad}${termToString(ast.left)} ${ast.op} ${termToString(ast.right)}`;
     default:
-      // Exhaustiveness guard
       return pad;
+  }
+}
+
+function termToString(term: Term): string {
+  switch (term.kind) {
+    case 'var':
+      return term.name;
+    case 'num':
+      return term.value.toString();
+    case 'const':
+      return term.name;
+    case 'func':
+      return `${term.name}(${term.args.map(termToString).join(', ')})`;
+    case 'paren':
+      return `(${termToString(term.term)})`;
   }
 }
 

@@ -12,7 +12,7 @@ export function exprToString(e: Expr): string {
     case 'binary':
       return `( ${exprToString(e.left)} ) ${opStr(e.op)} ( ${exprToString(e.right)} )`;
     case 'predicate':
-      return `${e.name}(${e.args.join(', ')})`;
+      return `${e.name}(${e.args.map(termToString).join(', ')})`;
     case 'relation':
       return `${termToString(e.left)} ${e.op} ${termToString(e.right)}`;
   }
@@ -24,6 +24,8 @@ function termToString(term: Term): string {
       return term.name;
     case 'num':
       return term.value.toString();
+    case 'const':
+      return term.name;
     case 'func':
       return `${term.name}(${term.args.map(termToString).join(', ')})`;
     case 'paren':

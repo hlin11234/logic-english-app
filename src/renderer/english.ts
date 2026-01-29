@@ -33,7 +33,10 @@ function render(e: Expr): string {
   }
 }
 
-function renderQuantifier(e: { q: 'forall' | 'exists'; var: string; domain?: { kind: 'domain'; name: string }; body: Expr }, isTop: boolean = false): string {
+function renderQuantifier(
+  e: { q: 'forall' | 'exists'; var: string; domain?: { kind: 'domain'; name: string }; body: Expr },
+  isTop: boolean = false
+): string {
   const varName = e.var;
   const domainName = e.domain ? getDomainName(e.domain.name) : '';
   const domainText = domainName ? `${domainName} ${varName}` : varName;
@@ -44,9 +47,16 @@ function renderQuantifier(e: { q: 'forall' | 'exists'; var: string; domain?: { k
     const right = e.body.right;
     
     // Check if both sides are predicates with the same variable
-    if (left.kind === 'predicate' && right.kind === 'predicate' && 
-        left.args.length === 1 && right.args.length === 1 &&
-        left.args[0] === varName && right.args[0] === varName) {
+    if (
+      left.kind === 'predicate' &&
+      right.kind === 'predicate' &&
+      left.args.length === 1 &&
+      right.args.length === 1 &&
+      left.args[0]?.kind === 'var' &&
+      right.args[0]?.kind === 'var' &&
+      left.args[0].name === varName &&
+      right.args[0].name === varName
+    ) {
       
       // Try to get phrase for predicate (reverse lookup)
       const leftPhrase = getPhraseForPredicate(left.name);
@@ -132,6 +142,8 @@ function termToString(term: Term): string {
       return term.name;
     case 'num':
       return term.value.toString();
+    case 'const':
+      return term.name;
     case 'func':
       return `${term.name}(${term.args.map(termToString).join(', ')})`;
     case 'paren':
@@ -178,12 +190,11 @@ function binaryInner(e: { op: 'and' | 'or' | 'impl' | 'iff'; left: Expr; right: 
   }
 }
 
-function predicateEnglish(e: { name: string; args: string[] }): string {
+function predicateEnglish(e: { name: string; args: Term[] }): string {
   if (e.args.length === 1) {
-    // For unary predicates, use natural phrasing
-    const varName = e.args[0]!;
-    // Try to get phrase from reverse mapping (placeholder for now)
+    const varName = termToString(e.args[0]!);
     return `${e.name}(${varName})`;
   }
-  return `${e.name} of ${e.args.join(' and ')}`;
+  const argStr = e.args.map(termToString).join(' and ');
+  return `${e.name} of ${argStr}`;
 }
