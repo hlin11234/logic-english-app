@@ -292,6 +292,51 @@ describe('English → Logic: Nested Quantifiers', () => {
   });
 });
 
+describe('English → Logic: Quantifier chains with domains (regressions)', () => {
+  it('parses "for every natural number n, there exists a natural number m such that m > n"', () => {
+    const ast = englishToAst('for every natural number n, there exists a natural number m such that m > n');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀n∈ℕ ( ∃m∈ℕ ( m > n ) )');
+  });
+
+  it('parses "for all integers x, there exists integer y such that x < y"', () => {
+    const ast = englishToAst('for all integers x, there exists integer y such that x < y');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀x∈ℤ ( ∃y∈ℤ ( x < y ) )');
+  });
+
+  it('parses "for every real number t there exists a real number u where t ≤ u"', () => {
+    const ast = englishToAst('for every real number t there exists a real number u where t ≤ u');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀t∈ℝ ( ∃u∈ℝ ( t ≤ u ) )');
+  });
+
+  it('parses "there exists an integer k such that k ≠ 0"', () => {
+    const ast = englishToAst('there exists an integer k such that k ≠ 0');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∃k∈ℤ ( k ≠ 0 )');
+  });
+
+  it('parses "for each rational number q, there exists a rational number r such that r = q + 1" with correct quantifiers and domains', () => {
+    const ast = englishToAst('for each rational number q, there exists a rational number r such that r = q + 1');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    // We at least require the correct quantifier + domain skeleton.
+    expect(logic).toContain('∀q∈ℚ');
+    expect(logic).toContain('∃r∈ℚ');
+    expect(logic).toContain('=');
+  });
+});
+
 describe('English → Logic: Flexible Parsing and Variable Names', () => {
   it('preserves user-specified variable name "t" in "for all real numbers t"', () => {
     const ast = englishToAst('for all real numbers t, t is greater than 0');

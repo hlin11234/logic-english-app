@@ -1,13 +1,12 @@
-/**
- * Convert matched English templates to logic AST.
- * Handles recursive clause parsing and predicate mapping.
- */
-
 import type { Expr, Term } from '../parser/Ast';
 import type { MatchResult, Token } from './match';
+import type { NormalizedToken } from './normalize';
 import { ALL_TEMPLATES } from './templates';
 import { normalizeDomain, normalizeRelation, getVariableHint, getPredicateForPhrase } from './dataset';
-import { matchAnyTemplate, normalizeEnglish, tokenize } from './match';
+import { matchAnyTemplate } from './match';
+import { normalizeEnglishTokens } from './normalize';
+import { parseClause as parseSemanticClause } from './parseEnglishExpr';
+import { validateAst } from '../parser/validateAst';
 
 /**
  * Dictionary mapping English phrases to predicate names.
@@ -70,6 +69,9 @@ function parseNpClause(tokens: Token[]): Expr | null {
 
 /**
  * Convert a matched template result to an AST expression.
+ *
+ * NOTE: The main `englishToAst` entry point no longer relies on templates,
+ * but tests still exercise this helper for condition patterns.
  */
 export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): Expr | null {
   switch (match.templateId) {
@@ -643,270 +645,8 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
 }
 
 /**
- * Unified English expression parser.
- * Recursively parses expressions with correct precedence:
- * 1. Quantifiers (highest priority for matching)
- * 2. Relations
- * 3. Binary operators (IFF, IMP, OR, AND) with correct precedence
- * 4. Negation
- * 5. Predicates (fallback)
- */
-function parseEnglishExpr(tokens: Token[], defaultVar: string = 'x', allTemplates = ALL_TEMPLATES): Expr | null {
-  if (tokens.length === 0) {
-    return null;
-  }
-
-  // Step 1: Try to parse quantifiers first (they have highest priority)
-  const quantExpr = parseQuantifier(tokens, defaultVar, allTemplates);
-  if (quantExpr) {
-    return quantExpr;
-  }
-
-  // Step 2: Try to parse relations (before binary operators)
-  const relExpr = parseRelation(tokens);
-  if (relExpr) {
-    return relExpr;
-  }
-
-  // Step 3: Parse binary operators manually (fallback if templates didn't match)
-  // Parse from lowest to highest precedence (IFF < IMP < OR < AND)
-  const binaryExpr = parseBinaryOperators(tokens, defaultVar, allTemplates);
-  if (binaryExpr) {
-    return binaryExpr;
-  }
-
-  // Step 4: Try negation
-  if (tokens[0] === 'not' || tokens[0] === 'NOT') {
-    const rest = tokens.slice(1);
-    const body = parseEnglishExpr(rest, defaultVar, allTemplates);
-    if (body) {
-      return { kind: 'negation', body };
-    }
-  }
-
-  // Step 5: Fallback to predicate (only if nothing else matched)
-  // Only create predicates for single tokens or very simple cases
-  // This prevents creating malformed predicates from complex clauses
-  if (tokens.length === 1) {
-    const varName = tokens[0]!;
-    // Only create predicate if it looks like a simple variable name
-    if (/^[a-z]$/i.test(varName)) {
-      return {
-        kind: 'predicate',
-        name: varName,
-        args: [varName],
-      };
-    }
-  }
-  
-  // For multiple tokens, don't create a predicate - this was the bug!
-  // If we get here, nothing matched, so return null
-  return null;
-}
-
-/**
- * Parse quantifier from tokens.
- * Handles: "for all <domain> <var>, <body>" and "there exists <domain> <var> such that <body>"
- */
-function parseQuantifier(tokens: Token[], _defaultVar: string, allTemplates: typeof ALL_TEMPLATES): Expr | null {
-  // Try typed quantifier templates first
-  const typedQuantTemplates = allTemplates.filter((t) => t.id === 'TQ1' || t.id === 'TQ2');
-  const match = matchAnyTemplate(tokens, typedQuantTemplates);
-  if (match) {
-    const expr = astFromMatch(match, allTemplates);
-    if (expr && expr.kind === 'quantifier') {
-      return expr;
-    }
-  }
-  return null;
-}
-
-/**
- * Parse relation from tokens.
- * Handles: "<var> < <var>", "<var> <= <var>", "<var> = <var>", "<var> ∈ <domain>", etc.
- */
-function parseRelation(tokens: Token[]): Expr | null {
-  if (tokens.length < 3) {
-    return null;
-  }
-
-  // Try to find a relation operator
-  const relOps = ['<', '≤', '>', '≥', '=', '≠', '∈', '∉'];
-  const domainSymbols = ['ℝ', 'ℤ', 'ℚ', 'ℕ', 'ℂ'];
-  
-  // Look for relation patterns: <var> <op> <var/num/domain>
-  for (let i = 1; i < tokens.length - 1; i++) {
-    const token = tokens[i]!;
-    
-    // Check for direct operator
-    if (relOps.includes(token)) {
-      const leftTokens = tokens.slice(0, i);
-      const rightTokens = tokens.slice(i + 1);
-      
-      const leftTerm = parseTerm(leftTokens);
-      if (!leftTerm) continue;
-      
-      // For membership (∈, ∉), right side can be a domain symbol
-      if ((token === '∈' || token === '∉') && rightTokens.length === 1 && domainSymbols.includes(rightTokens[0]!)) {
-        // Create a domain term (we'll use a special representation)
-        // For now, treat domain as a variable term
-        const rightTerm: Term = { kind: 'var', name: rightTokens[0]! };
-        return {
-          kind: 'relation',
-          op: token as any,
-          left: leftTerm,
-          right: rightTerm,
-        };
-      }
-      
-      const rightTerm = parseTerm(rightTokens);
-      if (rightTerm) {
-        return {
-          kind: 'relation',
-          op: token as any,
-          left: leftTerm,
-          right: rightTerm,
-        };
-      }
-    }
-    
-    // Check for relation phrase: "less than"
-    if (token === 'less' && i + 1 < tokens.length && tokens[i + 1] === 'than') {
-      const leftTokens = tokens.slice(0, i);
-      const rightTokens = tokens.slice(i + 2);
-      const leftTerm = parseTerm(leftTokens);
-      const rightTerm = parseTerm(rightTokens);
-      if (leftTerm && rightTerm) {
-        return {
-          kind: 'relation',
-          op: '<',
-          left: leftTerm,
-          right: rightTerm,
-        };
-      }
-    }
-    
-    // Check for "greater than"
-    if (token === 'greater' && i + 1 < tokens.length && tokens[i + 1] === 'than') {
-      const leftTokens = tokens.slice(0, i);
-      const rightTokens = tokens.slice(i + 2);
-      const leftTerm = parseTerm(leftTokens);
-      const rightTerm = parseTerm(rightTokens);
-      if (leftTerm && rightTerm) {
-        return {
-          kind: 'relation',
-          op: '>',
-          left: leftTerm,
-          right: rightTerm,
-        };
-      }
-    }
-    
-    // Check for "equal to"
-    if (token === 'equal' && i + 1 < tokens.length && tokens[i + 1] === 'to') {
-      const leftTokens = tokens.slice(0, i);
-      const rightTokens = tokens.slice(i + 2);
-      const leftTerm = parseTerm(leftTokens);
-      const rightTerm = parseTerm(rightTokens);
-      if (leftTerm && rightTerm) {
-        return {
-          kind: 'relation',
-          op: '=',
-          left: leftTerm,
-          right: rightTerm,
-        };
-      }
-    }
-  }
-  
-  return null;
-}
-
-/**
- * Parse binary operators with correct precedence.
- * Precedence (lowest to highest): IFF < IMP < OR < AND
- */
-function parseBinaryOperators(tokens: Token[], defaultVar: string, allTemplates: typeof ALL_TEMPLATES): Expr | null {
-  // Parse IFF (lowest precedence) - look for "IFF" token (normalized from "if and only if")
-  const iffIndex = tokens.indexOf('IFF');
-  if (iffIndex !== -1 && iffIndex > 0 && iffIndex < tokens.length - 1) {
-    const left = tokens.slice(0, iffIndex);
-    const right = tokens.slice(iffIndex + 1);
-    const leftExpr = parseEnglishExpr(left, defaultVar, allTemplates);
-    const rightExpr = parseEnglishExpr(right, defaultVar, allTemplates);
-    if (leftExpr && rightExpr) {
-      return { kind: 'binary', op: 'iff', left: leftExpr, right: rightExpr };
-    }
-  }
-
-  // Parse IMP (ONLYIF, IF...THEN, etc.)
-  const impIndex = findImplication(tokens);
-  if (impIndex) {
-    const left = tokens.slice(0, impIndex.leftEnd);
-    const right = tokens.slice(impIndex.rightStart);
-    const leftExpr = parseEnglishExpr(left, defaultVar, allTemplates);
-    const rightExpr = parseEnglishExpr(right, defaultVar, allTemplates);
-    if (leftExpr && rightExpr) {
-      return { kind: 'binary', op: 'impl', left: leftExpr, right: rightExpr };
-    }
-  }
-
-  // Parse OR
-  const orIndex = tokens.indexOf('or');
-  if (orIndex !== -1 && orIndex > 0 && orIndex < tokens.length - 1) {
-    const left = tokens.slice(0, orIndex);
-    const right = tokens.slice(orIndex + 1);
-    const leftExpr = parseEnglishExpr(left, defaultVar, allTemplates);
-    const rightExpr = parseEnglishExpr(right, defaultVar, allTemplates);
-    if (leftExpr && rightExpr) {
-      return { kind: 'binary', op: 'or', left: leftExpr, right: rightExpr };
-    }
-  }
-
-  // Parse AND (highest precedence)
-  const andIndex = tokens.indexOf('and');
-  if (andIndex !== -1 && andIndex > 0 && andIndex < tokens.length - 1) {
-    const left = tokens.slice(0, andIndex);
-    const right = tokens.slice(andIndex + 1);
-    const leftExpr = parseEnglishExpr(left, defaultVar, allTemplates);
-    const rightExpr = parseEnglishExpr(right, defaultVar, allTemplates);
-    if (leftExpr && rightExpr) {
-      return { kind: 'binary', op: 'and', left: leftExpr, right: rightExpr };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Find implication operator (ONLYIF, IF...THEN, etc.)
- */
-function findImplication(tokens: Token[]): { leftEnd: number; rightStart: number } | null {
-  // Check for "ONLYIF" (normalized token)
-  const onlyIfIndex = tokens.indexOf('ONLYIF');
-  if (onlyIfIndex !== -1) {
-    return { leftEnd: onlyIfIndex, rightStart: onlyIfIndex + 1 };
-  }
-
-  // Check for "if ... then"
-  const ifIndex = tokens.indexOf('if');
-  if (ifIndex !== -1) {
-    const thenIndex = tokens.indexOf('then', ifIndex);
-    if (thenIndex !== -1) {
-      return { leftEnd: ifIndex + 1, rightStart: thenIndex + 1 };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Replace variable 'x' with newVar in an expression.
- * Used to ensure clauses use the correct variable from outer quantifiers.
- */
-/**
  * Parse tokens into a Term (variable, number, or domain reference).
- * Exported for use in parseEnglishExpr.ts
+ * Exported for use in semantic parser (`parseEnglishExpr.ts`) and legacy templates.
  */
 export function parseTerm(tokens: Token[]): Term | null {
   if (tokens.length === 0) {
@@ -937,7 +677,9 @@ export function parseTerm(tokens: Token[]): Term | null {
 }
 
 /**
- * Legacy wrapper: parse a clause using parseEnglishExpr.
+ * Legacy wrapper: parse a clause using the template-based parser.
+ * Still used by older template helpers (e.g. condition patterns), but
+ * the main `englishToAst` entry point now uses the semantic parser.
  */
 function parseClause(tokens: Token[], defaultVar: string, allTemplates = ALL_TEMPLATES): Expr | null {
   return parseEnglishExpr(tokens, defaultVar, allTemplates);
@@ -964,19 +706,52 @@ function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
 
 /**
  * Main entry point: convert English text to AST.
- * Uses unified parseEnglishExpr for recursive parsing.
+ *
+ * Pipeline:
+ * 1. Normalize to structured tokens (KW/ID/NUM/OP) without dropping identifiers.
+ * 2. Use priority-based clause parser that treats quantifiers first (including chains).
+ * 3. Run AST validation to ensure all variables in relations are in scope.
+ *
+ * If a quantifier phrase is present but can't be parsed, or if the body
+ * uses an unbound variable, this function throws an Error with a helpful
+ * message (so callers can surface it to the user).
  */
-export function englishToAst(englishText: string, dictionary?: PhraseDictionary): Expr | null {
-  if (dictionary) {
-    setPhraseDictionary(dictionary);
-  }
-
-  const normalized = normalizeEnglish(englishText);
-  const tokens = tokenize(normalized);
-
+export function englishToAst(englishText: string, _dictionary?: PhraseDictionary): Expr | null {
+  const tokens: NormalizedToken[] = normalizeEnglishTokens(englishText);
   if (tokens.length === 0) {
     return null;
   }
 
-  return parseEnglishExpr(tokens, 'x', ALL_TEMPLATES);
+  let result;
+  try {
+    result = parseSemanticClause(tokens, {});
+  } catch (err) {
+    if (err instanceof Error) {
+      throw err;
+    }
+    throw new Error(String(err));
+  }
+
+  if (!result) {
+    return null;
+  }
+
+  if (result.remainingTokens.length > 0) {
+    const extra = result.remainingTokens.map((t) => t.value).join(' ');
+    throw new Error(`Could not understand part of the sentence near "${extra}".`);
+  }
+
+  const ast = result.expr;
+  const validation = validateAst(ast);
+  if (!validation.ok) {
+    const unbound = validation.errors.find((e) => e.startsWith('Unbound variable '));
+    if (unbound) {
+      const parts = unbound.split(/\s+/);
+      const varName = parts[2] ?? '?';
+      throw new Error(`${unbound}. Add a quantifier for ${varName} or use the builder.`);
+    }
+    throw new Error(validation.errors.join('; '));
+  }
+
+  return ast;
 }

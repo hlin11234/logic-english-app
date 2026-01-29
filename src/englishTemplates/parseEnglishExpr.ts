@@ -88,6 +88,35 @@ export function extractQuantifierInfo(
     }
   }
 
+  // Support trailing domain syntax: "for every n in N"
+  if (
+    i < tokens.length &&
+    tokens[i]!.kind === 'ID' &&
+    tokens[i]!.value.toLowerCase() === 'in'
+  ) {
+    let j = i + 1;
+    let tailDomain: Domain | null = null;
+    let tailEnd = j;
+
+    // Try to match known domain phrases (1-3 words) after "in"
+    for (let len = 1; len <= 3 && j + len <= tokens.length; len++) {
+      const slice = tokens.slice(j, j + len);
+      if (!slice.every((t) => t.kind === 'ID')) continue;
+      const phrase = slice.map((t) => t.value).join(' ');
+      const domainSymbol = normalizeDomain(phrase);
+      if (domainSymbol) {
+        tailDomain = { kind: 'domain', name: domainSymbol };
+        tailEnd = j + len;
+        break;
+      }
+    }
+
+    if (tailDomain) {
+      domain = tailDomain;
+      i = tailEnd;
+    }
+  }
+
   // If we still have no variable name, allow fallback "x" only when truly absent
   if (!varName) {
     varName = 'x';
@@ -628,6 +657,19 @@ export function parseClause(
 
   const existsExpr = parseExistentialQuantifier(tokens, context);
   if (existsExpr) return existsExpr;
+
+  // If quantifier keywords are present but we couldn't parse a quantifier,
+  // treat this as an error instead of silently dropping them.
+  const hasQuantifierKw = tokens.some(
+    (t) => t.kind === 'KW' && (t.value === 'FORALL' || t.value === 'EXISTS')
+  );
+  if (hasQuantifierKw) {
+    const tokenStr = tokens.map((t) => t.value).join(' ');
+    throw new Error(
+      `Could not parse quantifier phrase near "${tokenStr}". ` +
+        `Make sure each quantified variable has a clear domain and name.`
+    );
+  }
 
   // 2. Try relations
   const relExpr = parseRelationExpr(tokens, context);

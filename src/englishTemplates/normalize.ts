@@ -188,31 +188,37 @@ export function normalizeEnglishTokens(text: string): NormalizedToken[] {
     }
 
     // --- Scope boundaries ---
-    if (
-      lower === 'such' &&
-      i + 1 < raw.length &&
-      raw[i + 1]!.kind === 'ID' &&
-      raw[i + 1]!.value.toLowerCase() === 'that'
-    ) {
+    if (lower === 'such' && i + 1 < raw.length && raw[i + 1]!.kind === 'ID' && raw[i + 1]!.value.toLowerCase() === 'that') {
       out.push(kw('SUCHTHAT'));
       i += 2;
       continue;
     }
 
-    if (
-      lower === 'so' &&
-      i + 1 < raw.length &&
-      raw[i + 1]!.kind === 'ID' &&
-      raw[i + 1]!.value.toLowerCase() === 'that'
-    ) {
+    if (lower === 'so' && i + 1 < raw.length && raw[i + 1]!.kind === 'ID' && raw[i + 1]!.value.toLowerCase() === 'that') {
       out.push(kw('SUCHTHAT'));
       i += 2;
       continue;
     }
 
+    // "where" and "with the property that" both introduce the body clause
     if (lower === 'where') {
       out.push(kw('SUCHTHAT'));
       i++;
+      continue;
+    }
+
+    if (
+      lower === 'with' &&
+      i + 3 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 2]!.kind === 'ID' &&
+      raw[i + 3]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'the' &&
+      raw[i + 2]!.value.toLowerCase() === 'property' &&
+      raw[i + 3]!.value.toLowerCase() === 'that'
+    ) {
+      out.push(kw('SUCHTHAT'));
+      i += 4;
       continue;
     }
 
