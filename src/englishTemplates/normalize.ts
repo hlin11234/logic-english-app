@@ -34,8 +34,15 @@ export function tokenizeEnglish(input: string): Token[] {
       continue;
     }
 
-    // Commas and basic punctuation → separators (skip)
-    if (/[.,;:!?'"()]/.test(ch)) {
+    // Comma → explicit separator token
+    if (ch === ',') {
+      tokens.push({ kind: 'KW', value: ',' });
+      i++;
+      continue;
+    }
+
+    // Other basic punctuation → separators (skip)
+    if (/[.;:!?'"()]/.test(ch)) {
       i++;
       continue;
     }

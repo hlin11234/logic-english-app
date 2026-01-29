@@ -301,6 +301,30 @@ describe('English → Logic: Quantifier chains with domains (regressions)', () =
     expect(logic).toBe('∀n∈ℕ ( ∃m∈ℕ ( m > n ) )');
   });
 
+  it('parses "for all real numbers x, there exists a real number y such that x < y"', () => {
+    const ast = englishToAst('for all real numbers x, there exists a real number y such that x < y');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀x∈ℝ ( ∃y∈ℝ ( x < y ) )');
+  });
+
+  it('parses "for every integer n there exists an integer m where m > n"', () => {
+    const ast = englishToAst('for every integer n there exists an integer m where m > n');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀n∈ℤ ( ∃m∈ℤ ( m > n ) )');
+  });
+
+  it('parses "there exists a real number y such that y > 0"', () => {
+    const ast = englishToAst('there exists a real number y such that y > 0');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∃y∈ℝ ( y > 0 )');
+  });
+
   it('parses "for all integers x, there exists integer y such that x < y"', () => {
     const ast = englishToAst('for all integers x, there exists integer y such that x < y');
     expect(ast).not.toBeNull();
