@@ -3,45 +3,344 @@
  * Handles synonyms, filler words, and converts to canonical tokens.
  */
 
-export type NormalizedToken = string;
+export type Token =
+  | { kind: 'KW'; value: string }
+  | { kind: 'ID'; value: string }
+  | { kind: 'NUM'; value: string }
+  | { kind: 'OP'; value: string };
+
+export type NormalizedToken = Token;
 
 /**
- * Normalize English text to canonical tokens.
- * Pipeline:
- * 1. Lowercase and remove punctuation
- * 2. Remove filler words
- * 3. Normalize synonyms to canonical tokens
- * 4. Tokenize
+ * Low-level tokenizer.
+ *
+ * - Preserves identifiers `[a-zA-Z_][a-zA-Z0-9_]*` as ID tokens (no dropping).
+ * - Recognizes numbers as NUM tokens.
+ * - Strips punctuation but keeps `<, >, =, <=, >=, !=` as OP tokens.
+ * - Commas and other punctuation are treated as separators (ignored here).
  */
-export function normalizeEnglishTokens(text: string): NormalizedToken[] {
-  let normalized = text.toLowerCase().trim();
+export function tokenizeEnglish(input: string): Token[] {
+  const tokens: Token[] = [];
+  const text = input;
+  const n = text.length;
 
-  // Step 1: Remove punctuation
-  normalized = normalized.replace(/[.,;:!?'"()]/g, ' ');
+  let i = 0;
+  while (i < n) {
+    const ch = text[i]!;
 
-  // Step 2: Normalize quantifiers (do this early to avoid conflicts)
-  normalized = normalizeQuantifiers(normalized);
+    // Whitespace
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
 
-  // Step 3: Normalize scope boundaries
-  normalized = normalizeScopeBoundaries(normalized);
+    // Commas and basic punctuation → separators (skip)
+    if (/[.,;:!?'"()]/.test(ch)) {
+      i++;
+      continue;
+    }
 
-  // Step 4: Normalize connectives
-  normalized = normalizeConnectives(normalized);
+    // Operators (<, >, =, <=, >=, !=)
+    if (ch === '<' || ch === '>' || ch === '=' || ch === '!') {
+      let op = ch;
+      const next = i + 1 < n ? text[i + 1]! : '';
+      if ((ch === '<' || ch === '>') && next === '=') {
+        op += next;
+        i += 2;
+      } else if (ch === '!' && next === '=') {
+        op += next;
+        i += 2;
+      } else {
+        i += 1;
+      }
+      tokens.push({ kind: 'OP', value: op });
+      continue;
+    }
 
-  // Step 5: Normalize conditions
-  normalized = normalizeConditions(normalized);
+    // Numbers (digits with optional decimal point)
+    if (/[0-9]/.test(ch)) {
+      let j = i + 1;
+      while (j < n && /[0-9.]/.test(text[j]!)) j++;
+      const numStr = text.slice(i, j);
+      tokens.push({ kind: 'NUM', value: numStr });
+      i = j;
+      continue;
+    }
 
-  // Step 6: Normalize comparisons/relations
-  normalized = normalizeComparisons(normalized);
+    // Identifiers [a-zA-Z_][a-zA-Z0-9_]*
+    if (/[a-zA-Z_]/.test(ch)) {
+      let j = i + 1;
+      while (j < n && /[a-zA-Z0-9_]/.test(text[j]!)) j++;
+      const idStr = text.slice(i, j);
+      tokens.push({ kind: 'ID', value: idStr });
+      i = j;
+      continue;
+    }
 
-  // Step 7: Remove filler words
-  normalized = removeFillerWords(normalized);
-
-  // Step 8: Normalize whitespace and tokenize
-  normalized = normalized.replace(/\s+/g, ' ').trim();
-  const tokens = normalized.split(/\s+/).filter((t) => t.length > 0);
+    // Any other character: separator
+    i++;
+  }
 
   return tokens;
+}
+
+function kw(value: string): Token {
+  return { kind: 'KW', value };
+}
+
+/**
+ * Normalize English text to canonical tokens (KW/ID/NUM/OP).
+ * This replaces the earlier string-based pipeline and NEVER
+ * drops identifier tokens.
+ */
+export function normalizeEnglishTokens(text: string): NormalizedToken[] {
+  const raw = tokenizeEnglish(text);
+  const out: Token[] = [];
+
+  for (let i = 0; i < raw.length; ) {
+    const t = raw[i]!;
+
+    // Numbers
+    if (t.kind === 'NUM') {
+      out.push(t);
+      i++;
+      continue;
+    }
+
+    // Operators
+    if (t.kind === 'OP') {
+      let op = t.value;
+      if (op === '<=') op = '≤';
+      else if (op === '>=') op = '≥';
+      else if (op === '!=') op = '≠';
+      out.push({ kind: 'OP', value: op });
+      i++;
+      continue;
+    }
+
+    if (t.kind !== 'ID') {
+      out.push(t);
+      i++;
+      continue;
+    }
+
+    const lower = t.value.toLowerCase();
+
+    // --- Quantifiers ---
+    if (
+      lower === 'for' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      ['all', 'every', 'each'].includes(raw[i + 1]!.value.toLowerCase())
+    ) {
+      out.push(kw('FORALL'));
+      i += 2;
+      continue;
+    }
+
+    if (
+      lower === 'given' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'any'
+    ) {
+      out.push(kw('FORALL'));
+      i += 2;
+      continue;
+    }
+
+    if (['all', 'every', 'any', 'each'].includes(lower)) {
+      out.push(kw('FORALL'));
+      i++;
+      continue;
+    }
+
+    if (
+      lower === 'there' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID'
+    ) {
+      const nextLower = raw[i + 1]!.value.toLowerCase();
+      if (['exists', 'exist', 'is', 'are'].includes(nextLower)) {
+        out.push(kw('EXISTS'));
+        i += 2;
+        continue;
+      }
+    }
+
+    if (
+      lower === 'we' &&
+      i + 2 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 2]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'can' &&
+      raw[i + 2]!.value.toLowerCase() === 'find'
+    ) {
+      out.push(kw('EXISTS'));
+      i += 3;
+      continue;
+    }
+
+    if (lower === 'some') {
+      out.push(kw('EXISTS'));
+      i++;
+      continue;
+    }
+
+    // --- Scope boundaries ---
+    if (
+      lower === 'such' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'that'
+    ) {
+      out.push(kw('SUCHTHAT'));
+      i += 2;
+      continue;
+    }
+
+    if (
+      lower === 'so' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'that'
+    ) {
+      out.push(kw('SUCHTHAT'));
+      i += 2;
+      continue;
+    }
+
+    if (lower === 'where') {
+      out.push(kw('SUCHTHAT'));
+      i++;
+      continue;
+    }
+
+    // --- Logical connectives ---
+    if (['and', 'plus', 'also', 'but'].includes(lower)) {
+      out.push(kw('AND'));
+      i++;
+      continue;
+    }
+
+    if (lower === 'or') {
+      out.push(kw('OR'));
+      i++;
+      continue;
+    }
+
+    if (lower === 'either') {
+      i++;
+      continue;
+    }
+
+    if (lower === 'unless') {
+      out.push(kw('UNLESS'));
+      i++;
+      continue;
+    }
+
+    // "if and only if" → IFF
+    if (
+      lower === 'if' &&
+      i + 3 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 2]!.kind === 'ID' &&
+      raw[i + 3]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'and' &&
+      raw[i + 2]!.value.toLowerCase() === 'only' &&
+      raw[i + 3]!.value.toLowerCase() === 'if'
+    ) {
+      out.push(kw('IFF'));
+      i += 4;
+      continue;
+    }
+
+    if (lower === 'iff') {
+      out.push(kw('IFF'));
+      i++;
+      continue;
+    }
+
+    if (
+      lower === 'only' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'if'
+    ) {
+      out.push(kw('ONLYIF'));
+      i += 2;
+      continue;
+    }
+
+    if (lower === 'whenever') {
+      out.push(kw('IF'));
+      i++;
+      continue;
+    }
+
+    if (
+      lower === 'every' &&
+      i + 1 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'time'
+    ) {
+      out.push(kw('IF'));
+      i += 2;
+      continue;
+    }
+
+    if (lower === 'if') {
+      out.push(kw('IF'));
+      i++;
+      continue;
+    }
+
+    if (lower === 'then') {
+      out.push(kw('THEN'));
+      i++;
+      continue;
+    }
+
+    // --- Necessary / sufficient ---
+    if (
+      lower === 'necessary' &&
+      i + 2 < raw.length &&
+      raw[i + 1]!.kind === 'ID' &&
+      raw[i + 2]!.kind === 'ID' &&
+      raw[i + 1]!.value.toLowerCase() === 'and' &&
+      raw[i + 2]!.value.toLowerCase() === 'sufficient'
+    ) {
+      out.push(kw('NECSUFF'));
+      i += 3;
+      continue;
+    }
+
+    if (lower === 'sufficient') {
+      out.push(kw('SUFFICIENT'));
+      i++;
+      continue;
+    }
+
+    if (['necessary', 'required', 'requires', 'depends'].includes(lower)) {
+      out.push(kw('NECESSARY'));
+      i++;
+      continue;
+    }
+
+    // --- Negation ---
+    if (lower === 'not') {
+      out.push(kw('NOT'));
+      i++;
+      continue;
+    }
+
+    // Default: keep identifier as-is (preserve spelling and case)
+    out.push({ kind: 'ID', value: t.value });
+    i++;
+  }
+
+  return out;
 }
 
 /**

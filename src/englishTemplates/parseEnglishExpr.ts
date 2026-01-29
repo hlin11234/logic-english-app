@@ -9,10 +9,11 @@ import { normalizeDomain, getPredicateForPhrase } from './dataset';
 import { parseTerm } from './astFromEnglish';
 
 /**
- * Helper to convert NormalizedToken[] to string[] for parseTerm
+ * Helper to convert NormalizedToken[] to string[] for parseTerm.
+ * We simply project to the underlying token values.
  */
 function tokensToStrings(tokens: NormalizedToken[]): string[] {
-  return tokens as string[];
+  return tokens.map((t) => t.value);
 }
 
 export interface ParseContext {
@@ -32,24 +33,31 @@ export function extractQuantifierInfo(
 ): { varName: string | null; domain: Domain | null; remainingTokens: NormalizedToken[] } | null {
   if (tokens.length === 0) return null;
 
-  // Check if first token is the quantifier
-  if (tokens[0] !== quantifierType) return null;
+  // Check if first token is the quantifier KW
+  const first = tokens[0]!;
+  if (!(first.kind === 'KW' && first.value === quantifierType)) return null;
 
   let i = 1;
   let domain: Domain | null = null;
   let varName: string | null = null;
 
-  // Skip optional articles
-  while (i < tokens.length && ['a', 'an', 'the'].includes(tokens[i]!)) {
+  // Skip optional leading articles after quantifier
+  while (
+    i < tokens.length &&
+    tokens[i]!.kind === 'ID' &&
+    ['a', 'an', 'the'].includes(tokens[i]!.value.toLowerCase())
+  ) {
     i++;
   }
 
   // Try to find domain phrase: "real numbers", "integers", etc.
   let domainEnd = i;
   
-  // Try to match known domain phrases (1-3 words)
+  // Try to match known domain phrases (1-3 words) made of IDs
   for (let len = 1; len <= 3 && i + len <= tokens.length; len++) {
-    const phrase = tokens.slice(i, i + len).join(' ');
+    const slice = tokens.slice(i, i + len);
+    if (!slice.every((t) => t.kind === 'ID')) continue;
+    const phrase = slice.map((t) => t.value).join(' ');
     const domainSymbol = normalizeDomain(phrase);
     if (domainSymbol) {
       domain = { kind: 'domain', name: domainSymbol };
@@ -62,37 +70,35 @@ export function extractQuantifierInfo(
   if (domain) {
     i = domainEnd;
     // Skip optional articles after domain
-    while (i < tokens.length && ['a', 'an', 'the'].includes(tokens[i]!)) {
+    while (
+      i < tokens.length &&
+      tokens[i]!.kind === 'ID' &&
+      ['a', 'an', 'the'].includes(tokens[i]!.value.toLowerCase())
+    ) {
       i++;
     }
   }
 
-  // Next token should be the variable name
-  // Variable names can be any identifier that's not a reserved token
+  // Next token should be the variable name (identifier, not reserved KW)
   if (i < tokens.length) {
     const varToken = tokens[i]!;
-    // Variable names are typically single identifiers (not normalized tokens)
-    // Check if it's not a reserved token
-    if (!isReservedToken(varToken)) {
-      varName = varToken;
+    if (varToken.kind === 'ID' && !isReservedToken(varToken)) {
+      varName = varToken.value;
       i++;
-    } else {
-      // If the token is reserved, we can't extract a variable name
-      // This is an error case - return null
-      return null;
     }
-  } else {
-    // No more tokens - can't find variable name
-    return null;
   }
 
-  // Skip optional comma
-  if (i < tokens.length && tokens[i] === ',') {
-    i++;
+  // If we still have no variable name, allow fallback "x" only when truly absent
+  if (!varName) {
+    varName = 'x';
   }
 
   // Skip optional SUCHTHAT
-  if (i < tokens.length && tokens[i] === 'SUCHTHAT') {
+  if (
+    i < tokens.length &&
+    tokens[i]!.kind === 'KW' &&
+    tokens[i]!.value === 'SUCHTHAT'
+  ) {
     i++;
   }
 
@@ -110,13 +116,13 @@ export function extractQuantifierInfo(
 /**
  * Check if a token is a reserved/normalized token (not a variable name)
  */
-function isReservedToken(token: string): boolean {
+function isReservedToken(token: NormalizedToken): boolean {
   const reserved = [
     'FORALL', 'EXISTS', 'SUCHTHAT', 'AND', 'OR', 'NOT', 'IF', 'THEN',
     'ONLYIF', 'IFF', 'UNLESS', 'SUFFICIENT', 'NECESSARY', 'NECSUFF',
     '<', '>', '≤', '≥', '=', '≠', '∈', '∉',
   ];
-  return reserved.includes(token);
+  return token.kind === 'KW' && reserved.includes(token.value);
 }
 
 /**
@@ -188,7 +194,7 @@ export function parseRelationExpr(
   for (let i = 1; i < tokens.length - 1; i++) {
     const token = tokens[i]!;
 
-    if (relOps.includes(token)) {
+    if (token.kind === 'OP' && relOps.includes(token.value)) {
       const leftTokens = tokens.slice(0, i);
       const rightTokens = tokens.slice(i + 1);
 
@@ -196,12 +202,17 @@ export function parseRelationExpr(
       if (!leftTerm) continue;
 
       // For membership, right can be domain
-      if ((token === '∈' || token === '∉') && rightTokens.length === 1 && domainSymbols.includes(rightTokens[0]!)) {
-        const rightTerm: Term = { kind: 'var', name: rightTokens[0]! };
+      if (
+        (token.value === '∈' || token.value === '∉') &&
+        rightTokens.length === 1 &&
+        rightTokens[0]!.kind === 'ID' &&
+        domainSymbols.includes(rightTokens[0]!.value)
+      ) {
+        const rightTerm: Term = { kind: 'var', name: rightTokens[0]!.value };
         return {
           expr: {
             kind: 'relation',
-            op: token as any,
+            op: token.value as any,
             left: leftTerm,
             right: rightTerm,
           },
@@ -214,7 +225,7 @@ export function parseRelationExpr(
         return {
           expr: {
             kind: 'relation',
-            op: token as any,
+            op: token.value as any,
             left: leftTerm,
             right: rightTerm,
           },
@@ -223,9 +234,14 @@ export function parseRelationExpr(
       }
     }
 
-    // Check for relation phrases (already normalized to operators in normalize.ts)
-    // But handle multi-word patterns that might not be normalized
-    if (token === 'less' && i + 1 < tokens.length && tokens[i + 1] === 'than') {
+    // Check for relation phrases (handle cases that were not normalized to OP)
+    if (
+      token.kind === 'ID' &&
+      token.value.toLowerCase() === 'less' &&
+      i + 1 < tokens.length &&
+      tokens[i + 1]!.kind === 'ID' &&
+      tokens[i + 1]!.value.toLowerCase() === 'than'
+    ) {
       const leftTokens = tokens.slice(0, i);
       const rightTokens = tokens.slice(i + 2);
       const leftTerm = parseTerm(tokensToStrings(leftTokens));
@@ -250,6 +266,10 @@ export function parseRelationExpr(
 /**
  * Parse sufficient/necessary conditions
  */
+function findKwIndex(tokens: NormalizedToken[], value: string): number {
+  return tokens.findIndex((t) => t.kind === 'KW' && t.value === value);
+}
+
 export function parseConditionExpr(
   tokens: NormalizedToken[],
   context: ParseContext = {}
@@ -257,9 +277,9 @@ export function parseConditionExpr(
   const defaultVar = context.defaultVar || 'x';
 
   // Find SUFFICIENT or NECESSARY
-  const suffIndex = tokens.indexOf('SUFFICIENT');
-  const necIndex = tokens.indexOf('NECESSARY');
-  const necSuffIndex = tokens.indexOf('NECSUFF');
+  const suffIndex = findKwIndex(tokens, 'SUFFICIENT');
+  const necIndex = findKwIndex(tokens, 'NECESSARY');
+  const necSuffIndex = findKwIndex(tokens, 'NECSUFF');
 
   if (necSuffIndex !== -1) {
     // A NECSUFF B → A ↔ B
@@ -347,7 +367,7 @@ export function parseConditionalExpr(
   context: ParseContext = {}
 ): { expr: Expr; remainingTokens: NormalizedToken[] } | null {
   // IFF (if and only if)
-  const iffIndex = tokens.indexOf('IFF');
+  const iffIndex = findKwIndex(tokens, 'IFF');
   if (iffIndex !== -1 && iffIndex > 0 && iffIndex < tokens.length - 1) {
     const left = tokens.slice(0, iffIndex);
     const right = tokens.slice(iffIndex + 1);
@@ -367,7 +387,7 @@ export function parseConditionalExpr(
   }
 
   // ONLYIF: A ONLYIF B → A → B
-  const onlyIfIndex = tokens.indexOf('ONLYIF');
+  const onlyIfIndex = findKwIndex(tokens, 'ONLYIF');
   if (onlyIfIndex !== -1 && onlyIfIndex > 0 && onlyIfIndex < tokens.length - 1) {
     const left = tokens.slice(0, onlyIfIndex);
     const right = tokens.slice(onlyIfIndex + 1);
@@ -387,9 +407,11 @@ export function parseConditionalExpr(
   }
 
   // IF...THEN: IF A THEN B → A → B
-  const ifIndex = tokens.indexOf('IF');
+  const ifIndex = findKwIndex(tokens, 'IF');
   if (ifIndex !== -1) {
-    const thenIndex = tokens.indexOf('THEN', ifIndex);
+    const thenIndex = tokens.findIndex(
+      (t, idx) => idx > ifIndex && t.kind === 'KW' && t.value === 'THEN'
+    );
     if (thenIndex !== -1) {
       const left = tokens.slice(ifIndex + 1, thenIndex);
       const right = tokens.slice(thenIndex + 1);
@@ -410,7 +432,11 @@ export function parseConditionalExpr(
   }
 
   // IF (without THEN): A IF B → B → A (reversed!)
-  if (ifIndex !== -1 && ifIndex > 0 && tokens.indexOf('THEN') === -1) {
+  if (
+    ifIndex !== -1 &&
+    ifIndex > 0 &&
+    tokens.findIndex((t) => t.kind === 'KW' && t.value === 'THEN') === -1
+  ) {
     const left = tokens.slice(0, ifIndex);
     const right = tokens.slice(ifIndex + 1);
     const leftExpr = parseClause(left, context);
@@ -440,7 +466,7 @@ export function parseBinaryOperators(
   context: ParseContext = {}
 ): { expr: Expr; remainingTokens: NormalizedToken[] } | null {
   // Try OR (lower precedence than AND)
-  const orIndex = tokens.indexOf('OR');
+  const orIndex = findKwIndex(tokens, 'OR');
   if (orIndex !== -1 && orIndex > 0 && orIndex < tokens.length - 1) {
     const left = tokens.slice(0, orIndex);
     const right = tokens.slice(orIndex + 1);
@@ -460,7 +486,7 @@ export function parseBinaryOperators(
   }
 
   // Try AND (higher precedence)
-  const andIndex = tokens.indexOf('AND');
+  const andIndex = findKwIndex(tokens, 'AND');
   if (andIndex !== -1 && andIndex > 0 && andIndex < tokens.length - 1) {
     const left = tokens.slice(0, andIndex);
     const right = tokens.slice(andIndex + 1);
@@ -489,7 +515,10 @@ export function parseNegation(
   tokens: NormalizedToken[],
   context: ParseContext = {}
 ): { expr: Expr; remainingTokens: NormalizedToken[] } | null {
-  if (tokens.length === 0 || tokens[0] !== 'NOT') {
+  if (
+    tokens.length === 0 ||
+    !(tokens[0]!.kind === 'KW' && tokens[0]!.value === 'NOT')
+  ) {
     return null;
   }
 
@@ -518,8 +547,15 @@ export function parsePredicate(
   const defaultVar = context.defaultVar || 'x';
 
   // Pattern: "is <adjective>" → Adjective(var)
-  if (tokens[0] === 'is' && tokens.length > 1) {
-    const adjective = tokens.slice(1).join(' ');
+  if (
+    tokens[0]!.kind === 'ID' &&
+    tokens[0]!.value.toLowerCase() === 'is' &&
+    tokens.length > 1
+  ) {
+    const adjective = tokens
+      .slice(1)
+      .map((t) => t.value)
+      .join(' ');
     const predicateName = getPredicateForPhrase(adjective);
     return {
       expr: {
@@ -532,8 +568,15 @@ export function parsePredicate(
   }
 
   // Pattern: "has <noun>" → HasNoun(var)
-  if (tokens[0] === 'has' && tokens.length > 1) {
-    const noun = tokens.slice(1).join(' ');
+  if (
+    tokens[0]!.kind === 'ID' &&
+    tokens[0]!.value.toLowerCase() === 'has' &&
+    tokens.length > 1
+  ) {
+    const noun = tokens
+      .slice(1)
+      .map((t) => t.value)
+      .join(' ');
     const nounPred = getPredicateForPhrase(noun);
     const predicateName = 'Has' + nounPred;
     return {
@@ -548,7 +591,7 @@ export function parsePredicate(
 
   // Pattern: simple noun phrase → PredicateName(var)
   // Join all tokens as a phrase
-  const phrase = tokens.join(' ');
+  const phrase = tokens.map((t) => t.value).join(' ');
   const predicateName = getPredicateForPhrase(phrase);
   return {
     expr: {
@@ -612,7 +655,7 @@ export function parseClause(
 
   // If nothing matched, return null (caller should show error)
   // Provide helpful error message
-  const tokenStr = tokens.join(' ');
+  const tokenStr = tokens.map((t) => t.value).join(' ');
   throw new Error(
     `Could not parse clause: "${tokenStr}". ` +
     `Try expressing it as: a quantifier (FORALL/EXISTS), a relation (<, >, =, etc.), ` +
