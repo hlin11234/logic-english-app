@@ -41,6 +41,13 @@ export function tokenizeEnglish(input: string): Token[] {
       continue;
     }
 
+    // Unicode comparison/membership symbols (emit as OP so relation phrases parse correctly)
+    if (ch === '≤' || ch === '≥' || ch === '≠' || ch === '∈' || ch === '∉') {
+      tokens.push({ kind: 'OP', value: ch });
+      i++;
+      continue;
+    }
+
     // Other basic punctuation → separators (skip)
     if (/[.;:!?'"()]/.test(ch)) {
       i++;
@@ -99,8 +106,10 @@ function kw(value: string): Token {
  * Normalize English text to canonical tokens (KW/ID/NUM/OP).
  * This replaces the earlier string-based pipeline and NEVER
  * drops identifier tokens.
+ * Applies comparison phrase normalization first so "x is greater than or equal to 5" → "x ≥ 5".
  */
 export function normalizeEnglishTokens(text: string): NormalizedToken[] {
+  text = normalizeComparisons(text);
   const raw = tokenizeEnglish(text);
   const out: Token[] = [];
 
@@ -457,20 +466,7 @@ function normalizeConditions(text: string): string {
  * Normalize comparison/relation phrases
  */
 function normalizeComparisons(text: string): string {
-  // Less than
-  text = text.replace(/\bis\s+less\s+than\b/g, '<');
-  text = text.replace(/\bless\s+than\b/g, '<');
-  text = text.replace(/\bsmaller\s+than\b/g, '<');
-  text = text.replace(/\blower\s+than\b/g, '<');
-  text = text.replace(/\bbelow\b/g, '<');
-
-  // Greater than
-  text = text.replace(/\bis\s+greater\s+than\b/g, '>');
-  text = text.replace(/\bgreater\s+than\b/g, '>');
-  text = text.replace(/\blarger\s+than\b/g, '>');
-  text = text.replace(/\bhigher\s+than\b/g, '>');
-  text = text.replace(/\babove\b/g, '>');
-
+  // Do "or equal" and compound phrases first so "greater than or equal to" isn't shortened to "greater than"
   // Less than or equal
   text = text.replace(/\bis\s+at\s+most\b/g, '≤');
   text = text.replace(/\bat\s+most\b/g, '≤');
@@ -486,6 +482,20 @@ function normalizeComparisons(text: string): string {
   text = text.replace(/\bgreater\s+than\s+or\s+equal\s+to\b/g, '≥');
   text = text.replace(/\bis\s+not\s+less\s+than\b/g, '≥');
   text = text.replace(/\bnot\s+less\s+than\b/g, '≥');
+
+  // Less than (after "or equal" so we don't eat "less than or equal")
+  text = text.replace(/\bis\s+less\s+than\b/g, '<');
+  text = text.replace(/\bless\s+than\b/g, '<');
+  text = text.replace(/\bsmaller\s+than\b/g, '<');
+  text = text.replace(/\blower\s+than\b/g, '<');
+  text = text.replace(/\bbelow\b/g, '<');
+
+  // Greater than
+  text = text.replace(/\bis\s+greater\s+than\b/g, '>');
+  text = text.replace(/\bgreater\s+than\b/g, '>');
+  text = text.replace(/\blarger\s+than\b/g, '>');
+  text = text.replace(/\bhigher\s+than\b/g, '>');
+  text = text.replace(/\babove\b/g, '>');
 
   // Equal
   text = text.replace(/\bis\s+equal\s+to\b/g, '=');

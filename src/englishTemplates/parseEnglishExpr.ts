@@ -775,7 +775,7 @@ export function parsePredicate(
       expr: {
         kind: 'predicate',
         name: predicateName,
-        args: [defaultVar],
+        args: [{ kind: 'var', name: defaultVar }],
       },
       remainingTokens: [],
     };
@@ -797,7 +797,7 @@ export function parsePredicate(
       expr: {
         kind: 'predicate',
         name: predicateName,
-        args: [defaultVar],
+        args: [{ kind: 'var', name: defaultVar }],
       },
       remainingTokens: [],
     };
@@ -811,7 +811,7 @@ export function parsePredicate(
     expr: {
       kind: 'predicate',
       name: predicateName,
-      args: [defaultVar],
+      args: [{ kind: 'var', name: defaultVar }],
     },
     remainingTokens: [],
   };

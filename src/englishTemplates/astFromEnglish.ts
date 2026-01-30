@@ -63,7 +63,7 @@ function parseNpClause(tokens: Token[]): Expr | null {
   return {
     kind: 'predicate',
     name: predicateName,
-    args: ['x'],
+    args: [{ kind: 'var', name: 'x' }],
   };
 }
 
@@ -460,7 +460,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       const nounPred: Expr = {
         kind: 'predicate',
         name: nounName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
 
       return {
@@ -497,7 +497,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       const nounPred: Expr = {
         kind: 'predicate',
         name: nounName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
 
       return {
@@ -530,7 +530,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       return {
         kind: 'predicate',
         name: predicateName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
     }
 
@@ -577,7 +577,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       return {
         kind: 'predicate',
         name: predicateName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
     }
 
@@ -597,7 +597,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       return {
         kind: 'predicate',
         name: predicateName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
     }
 
@@ -616,7 +616,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       return {
         kind: 'predicate',
         name: adjectiveName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
     }
 
@@ -635,7 +635,7 @@ export function astFromMatch(match: MatchResult, allTemplates = ALL_TEMPLATES): 
       return {
         kind: 'predicate',
         name: adjectiveName,
-        args: [varName],
+        args: [{ kind: 'var', name: varName }],
       };
     }
 
