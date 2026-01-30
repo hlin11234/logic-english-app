@@ -795,7 +795,7 @@ function buildExpr(node: BuilderNode, scope: Set<string>): Expr {
   }
 }
 
-function buildTerm(term: BuilderTerm, scope: Set<string>): Term {
+function buildTerm(term: BuilderTerm, _scope: Set<string>): Term {
   if (term.kind === 'var') {
     if (!term.name) {
       throw new Error('Variable term missing name');

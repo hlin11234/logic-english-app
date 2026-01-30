@@ -29,10 +29,14 @@ function termToString(term: Term): string {
       return term.name;
     case 'num':
       return term.value.toString();
+    case 'const':
+      return term.name;
     case 'func':
       return `${term.name}(${term.args.map(termToString).join(', ')})`;
     case 'paren':
       return `(${termToString(term.term)})`;
+    default:
+      return String((term as { name?: string }).name ?? '');
   }
 }
 

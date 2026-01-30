@@ -3,7 +3,6 @@ import type { MatchResult, Token } from './match';
 import type { NormalizedToken } from './normalize';
 import { ALL_TEMPLATES } from './templates';
 import { normalizeDomain, normalizeRelation, getVariableHint, getPredicateForPhrase } from './dataset';
-import { matchAnyTemplate } from './match';
 import { normalizeEnglishTokens } from './normalize';
 import { parseClause as parseSemanticClause } from './parseEnglishExpr';
 import { validateAst } from '../parser/validateAst';
@@ -677,6 +676,17 @@ export function parseTerm(tokens: Token[]): Term | null {
 }
 
 /**
+ * Parse token sequence (from template match slots) into an Expr using the semantic clause parser.
+ * Joins tokens to text, re-normalizes, and runs parseSemanticClause so nested quantifiers/relations work.
+ */
+function parseEnglishExpr(tokens: Token[], defaultVar: string, _allTemplates = ALL_TEMPLATES): Expr | null {
+  const text = (tokens as string[]).join(' ');
+  const normalized = normalizeEnglishTokens(text);
+  const result = parseSemanticClause(normalized, { defaultVar });
+  return result ? result.expr : null;
+}
+
+/**
  * Legacy wrapper: parse a clause using the template-based parser.
  * Still used by older template helpers (e.g. condition patterns), but
  * the main `englishToAst` entry point now uses the semantic parser.
@@ -685,11 +695,14 @@ function parseClause(tokens: Token[], defaultVar: string, allTemplates = ALL_TEM
   return parseEnglishExpr(tokens, defaultVar, allTemplates);
 }
 
-function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
+/** Replace variable name in a term (for template/legacy use). */
+export function replaceTermVariable(term: Term, oldVar: string, newVar: string): Term {
   switch (term.kind) {
     case 'var':
       return { ...term, name: term.name === oldVar ? newVar : term.name };
     case 'num':
+      return term;
+    case 'const':
       return term;
     case 'func':
       return {
@@ -744,6 +757,15 @@ export function englishToAst(englishText: string, _dictionary?: PhraseDictionary
   const ast = result.expr;
   const validation = validateAst(ast);
   if (!validation.ok) {
+    const allUnboundVars = validation.errors.every((e) => e.startsWith('Unbound variable '));
+    const allowUnbound =
+      ast.kind === 'binary' ||
+      ast.kind === 'predicate' ||
+      ast.kind === 'relation' ||
+      ast.kind === 'quantifier';
+    if (allUnboundVars && allowUnbound) {
+      return ast;
+    }
     const unbound = validation.errors.find((e) => e.startsWith('Unbound variable '));
     if (unbound) {
       const parts = unbound.split(/\s+/);

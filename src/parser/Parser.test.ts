@@ -7,7 +7,7 @@ describe('Parser', () => {
     expect(ast.kind).toBe('predicate');
     if (ast.kind === 'predicate') {
       expect(ast.name).toBe('P');
-      expect(ast.args).toEqual(['x']);
+      expect(ast.args).toEqual([{ kind: 'var', name: 'x' }]);
     }
   });
 
@@ -96,7 +96,7 @@ describe('Parser', () => {
     const { ast } = parse('L(x,y)');
     expect(ast.kind).toBe('predicate');
     if (ast.kind === 'predicate') {
-      expect(ast.args).toEqual(['x', 'y']);
+      expect(ast.args).toEqual([{ kind: 'var', name: 'x' }, { kind: 'var', name: 'y' }]);
     }
   });
 

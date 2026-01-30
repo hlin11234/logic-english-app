@@ -51,7 +51,7 @@ export interface Predicate {
 
 export interface Relation {
   kind: 'relation';
-  op: '<' | '<=' | '>' | '>=' | '=' | '!=' | '∈' | '∉';
+  op: '<' | '≤' | '<=' | '>' | '≥' | '>=' | '=' | '≠' | '!=' | '∈' | '∉';
   left: Term;
   right: Term;
 }

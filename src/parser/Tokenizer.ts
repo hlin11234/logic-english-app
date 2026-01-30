@@ -67,6 +67,10 @@ const OP_MAP: Record<string, TokenType> = {
   '≥': 'ge',
   '=': 'eq',
   '≠': 'ne',
+  // ASCII relation tokens (multi-char match in tokenize())
+  '<=': 'le',
+  '>=': 'ge',
+  '!=': 'ne',
 };
 
 const OP_STRINGS = [

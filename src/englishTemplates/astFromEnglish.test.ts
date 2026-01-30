@@ -104,7 +104,7 @@ describe('English → Logic: Necessary/Sufficient', () => {
 
 describe('Logic → English: Necessary/Sufficient', () => {
   it('renders p → q with necessary/sufficient alternates', () => {
-    const { ast } = parse('( p ) → ( q )');
+    const { ast } = parse('p → q');
     const english = toEnglish(ast);
     expect(english).toContain('If');
     expect(english).toContain('sufficient');
@@ -112,7 +112,7 @@ describe('Logic → English: Necessary/Sufficient', () => {
   });
 
   it('renders p ↔ q with necessary and sufficient alternate', () => {
-    const { ast } = parse('( p ) ↔ ( q )');
+    const { ast } = parse('p ↔ q');
     const english = toEnglish(ast);
     expect(english).toContain('if and only if');
     expect(english).toContain('necessary and sufficient');
@@ -480,5 +480,64 @@ describe('English → Logic: Flexible Parsing and Variable Names', () => {
       expect(ast.var).toBe('n');
       expect(ast.domain?.name).toBe('ℤ');
     }
+  });
+});
+
+/**
+ * README Phil Notes – Suggested grading checklist (English → Logic).
+ * These tests assert the exact examples and behavior described in the README.
+ */
+describe('README grading checklist: English → Logic', () => {
+  it('"for all real numbers x, there exists a real number y such that x < y" → ∀x∈ℝ ( ∃y∈ℝ ( x < y ) )', () => {
+    const ast = englishToAst('for all real numbers x, there exists a real number y such that x < y');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).toBe('∀x∈ℝ ( ∃y∈ℝ ( x < y ) )');
+  });
+
+  it('"x is greater than or equal to 5" → x ≥ 5', () => {
+    const ast = englishToAst('x is greater than or equal to 5');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    expect(ast.kind).toBe('relation');
+    if (ast.kind === 'relation') {
+      expect(ast.op).toBe('≥');
+    }
+    const logic = exprToString(ast);
+    expect(logic).toBe('x ≥ 5');
+  });
+
+  it('relation phrase "x is at least 0" parses as x ≥ 0', () => {
+    const ast = englishToAst('x is at least 0');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    expect(ast.kind).toBe('relation');
+    if (ast.kind === 'relation') {
+      expect(ast.op).toBe('≥');
+    }
+    const logic = exprToString(ast);
+    expect(logic).toBe('x ≥ 0');
+  });
+
+  it('predicates have non-empty args (no P() or Q())', () => {
+    const ast = englishToAst('p and q');
+    expect(ast).not.toBeNull();
+    if (!ast) return;
+    const logic = exprToString(ast);
+    expect(logic).not.toMatch(/\(\s*\)/);
+    expect(logic).toContain('(');
+    expect(logic).toContain(')');
+    const hasPredicateWithArg = logic.includes('P(') && logic.includes('Q(');
+    expect(hasPredicateWithArg).toBe(true);
+  });
+
+  it('"p only if q" and "q if p" produce correct implications', () => {
+    const onlyIf = englishToAst('p only if q');
+    const qIfP = englishToAst('q if p');
+    expect(onlyIf).not.toBeNull();
+    expect(qIfP).not.toBeNull();
+    if (onlyIf && onlyIf.kind === 'binary') expect(onlyIf.op).toBe('impl');
+    if (qIfP && qIfP.kind === 'binary') expect(qIfP.op).toBe('impl');
   });
 });

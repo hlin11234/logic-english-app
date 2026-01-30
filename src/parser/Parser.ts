@@ -150,6 +150,14 @@ class ParserState {
       return { kind: 'quantifier', q, var: v, domain, body };
     }
 
+    // Grouped expression ( ... ) first so "( P(x) )" is not parsed as parenthesized term
+    if (this.at('lparen')) {
+      this.advance();
+      const e = this.parseExpr();
+      this.expect('rparen');
+      return e;
+    }
+
     // Relation: Term RelOp Term
     if (this.canStartTerm()) {
       const left = this.parseTerm();
@@ -174,13 +182,6 @@ class ParserState {
         ['lparen', 'var', 'ident'],
         t.type
       );
-    }
-
-    if (this.at('lparen')) {
-      this.advance();
-      const e = this.parseExpr();
-      this.expect('rparen');
-      return e;
     }
 
     if (this.at('ident') || this.at('var')) {
@@ -209,6 +210,10 @@ class ParserState {
     if (this.at('num')) {
       const value = parseFloat(this.advance().value);
       return { kind: 'num', value };
+    }
+    if (this.at('domain')) {
+      const name = this.advance().value;
+      return { kind: 'const', name };
     }
     if (this.at('lparen')) {
       this.advance();

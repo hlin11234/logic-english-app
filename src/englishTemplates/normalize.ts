@@ -295,6 +295,12 @@ export function normalizeEnglishTokens(text: string): NormalizedToken[] {
       continue;
     }
 
+    if (lower === 'implies') {
+      out.push(kw('IMPLIES'));
+      i++;
+      continue;
+    }
+
     if (lower === 'whenever') {
       out.push(kw('IF'));
       i++;
@@ -366,9 +372,9 @@ export function normalizeEnglishTokens(text: string): NormalizedToken[] {
 }
 
 /**
- * Normalize quantifier phrases to canonical tokens
+ * Normalize quantifier phrases to canonical tokens (reserved for future string-based pipeline).
  */
-function normalizeQuantifiers(text: string): string {
+export function normalizeQuantifiers(text: string): string {
   // Universal quantifiers
   text = text.replace(/\bfor\s+all\b/g, 'FORALL');
   text = text.replace(/\bfor\s+every\b/g, 'FORALL');
@@ -394,9 +400,9 @@ function normalizeQuantifiers(text: string): string {
 }
 
 /**
- * Normalize scope boundaries (such that, where, etc.)
+ * Normalize scope boundaries (such that, where, etc.) (reserved for future pipeline).
  */
-function normalizeScopeBoundaries(text: string): string {
+export function normalizeScopeBoundaries(text: string): string {
   text = text.replace(/\bsuch\s+that\b/g, 'SUCHTHAT');
   text = text.replace(/\bso\s+that\b/g, 'SUCHTHAT');
   text = text.replace(/\bwhere\b/g, 'SUCHTHAT');
@@ -405,9 +411,9 @@ function normalizeScopeBoundaries(text: string): string {
 }
 
 /**
- * Normalize logical connectives
+ * Normalize logical connectives (reserved for future pipeline).
  */
-function normalizeConnectives(text: string): string {
+export function normalizeConnectives(text: string): string {
   // Conjunction
   text = text.replace(/\band\b/g, 'AND');
   text = text.replace(/\bas\s+well\s+as\b/g, 'AND');
@@ -434,9 +440,9 @@ function normalizeConnectives(text: string): string {
 }
 
 /**
- * Normalize necessary/sufficient conditions
+ * Normalize necessary/sufficient conditions (reserved for future pipeline).
  */
-function normalizeConditions(text: string): string {
+export function normalizeConditions(text: string): string {
   // Sufficient
   text = text.replace(/\bis\s+sufficient\s+for\b/g, 'SUFFICIENT');
   text = text.replace(/\bis\s+enough\s+for\b/g, 'SUFFICIENT');
@@ -535,9 +541,9 @@ function normalizeComparisons(text: string): string {
 }
 
 /**
- * Remove filler words that don't affect meaning
+ * Remove filler words that don't affect meaning (reserved for future pipeline).
  */
-function removeFillerWords(text: string): string {
+export function removeFillerWords(text: string): string {
   // Remove articles
   text = text.replace(/\b(a|an|the)\s+/gi, ' ');
 

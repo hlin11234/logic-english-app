@@ -170,15 +170,19 @@ function parseQuantifierHeader(tokens: NormalizedToken[], i: number): Quantifier
   if (i >= tokens.length) return null;
   const first = tokens[i]!;
 
-  if (!(first.kind === 'KW' && (first.value === 'FORALL' || first.value === 'EXISTS'))) {
-    return null;
-  }
+  const isForall =
+    (first.kind === 'KW' && first.value.toUpperCase() === 'FORALL') ||
+    (first.kind === 'ID' && first.value.toLowerCase() === 'forall');
+  const isExists =
+    (first.kind === 'KW' && first.value.toUpperCase() === 'EXISTS') ||
+    (first.kind === 'ID' && first.value.toLowerCase() === 'exists');
+  if (!isForall && !isExists) return null;
 
-  const isForall = first.value === 'FORALL';
+  const forall = isForall;
   let j = i + 1;
 
   // EXISTS may optionally have a determiner before the domain phrase
-  if (!isForall) {
+  if (!forall) {
     while (
       j < tokens.length &&
       tokens[j]!.kind === 'ID' &&
@@ -203,6 +207,14 @@ function parseQuantifierHeader(tokens: NormalizedToken[], i: number): Quantifier
       break;
     }
   }
+  // Single-token domain fallback (e.g. "integer", "integers") when phrase loop didn't match
+  if (!domain && j < tokens.length && tokens[j]!.kind === 'ID') {
+    const singleSym = normalizeDomain(tokens[j]!.value);
+    if (singleSym) {
+      domain = { kind: 'domain', name: singleSym };
+      domainEnd = j + 1;
+    }
+  }
 
   j = domainEnd;
 
@@ -215,7 +227,7 @@ function parseQuantifierHeader(tokens: NormalizedToken[], i: number): Quantifier
   j++;
 
   return {
-    q: isForall ? 'forall' : 'exists',
+    q: forall ? 'forall' : 'exists',
     varName,
     domain,
     nextIndex: j,
@@ -268,7 +280,7 @@ export function parseQuantifierChain(
   }
 
   const headerTokens = tokens.slice(0, headerEnd);
-  const bodyTokens = tokens.slice(bodyStart);
+  let bodyTokens = stripLeadingCommas(tokens.slice(bodyStart));
 
   // Parse headers left-to-right
   const headers: QuantifierHeader[] = [];
@@ -280,8 +292,18 @@ export function parseQuantifierChain(
       i++;
       continue;
     }
+    // If "there" wasn't combined with "exists", skip it so next token is EXISTS
+    if (t.kind === 'ID' && t.value.toLowerCase() === 'there') {
+      i++;
+      continue;
+    }
 
-    const header = parseQuantifierHeader(headerTokens, i);
+    let header = parseQuantifierHeader(headerTokens, i);
+    // If no header (e.g. variable name "x" between quantifiers with no comma), skip one token and retry
+    if (!header && i + 1 < headerTokens.length) {
+      header = parseQuantifierHeader(headerTokens, i + 1);
+      if (header) i = i + 1;
+    }
     if (!header) break;
     headers.push(header);
     i = header.nextIndex;
@@ -342,6 +364,12 @@ export function parseQuantifierChain(
 /**
  * Parse a universal quantifier using semantic pattern matching
  */
+function stripLeadingCommas(tokens: NormalizedToken[]): NormalizedToken[] {
+  let i = 0;
+  while (i < tokens.length && tokens[i]!.kind === 'KW' && tokens[i]!.value === ',') i++;
+  return i === 0 ? tokens : tokens.slice(i);
+}
+
 export function parseUniversalQuantifier(
   tokens: NormalizedToken[],
   context: ParseContext = {}
@@ -349,7 +377,8 @@ export function parseUniversalQuantifier(
   const info = extractQuantifierInfo(tokens, 'FORALL');
   if (!info || !info.varName) return null;
 
-  const bodyExpr = parseClause(info.remainingTokens, { ...context, defaultVar: info.varName });
+  const bodyTokens = stripLeadingCommas(info.remainingTokens);
+  const bodyExpr = parseClause(bodyTokens, { ...context, defaultVar: info.varName });
   if (!bodyExpr) return null;
 
   return {
@@ -374,7 +403,8 @@ export function parseExistentialQuantifier(
   const info = extractQuantifierInfo(tokens, 'EXISTS');
   if (!info || !info.varName) return null;
 
-  const bodyExpr = parseClause(info.remainingTokens, { ...context, defaultVar: info.varName });
+  const bodyTokens = stripLeadingCommas(info.remainingTokens);
+  const bodyExpr = parseClause(bodyTokens, { ...context, defaultVar: info.varName });
   if (!bodyExpr) return null;
 
   return {
@@ -484,6 +514,14 @@ function findKwIndex(tokens: NormalizedToken[], value: string): number {
   return tokens.findIndex((t) => t.kind === 'KW' && t.value === value);
 }
 
+/** True when expr is a single-letter propositional atom (e.g. P(p), Q(q)), not semantic predicates like Tomato(x). */
+function isPropositionalAtom(expr: Expr): boolean {
+  if (expr.kind !== 'predicate') return false;
+  if (expr.args.length !== 1 || expr.args[0]!.kind !== 'var') return false;
+  const argName = expr.args[0]!.name;
+  return expr.name.length === 1 || expr.name === argName;
+}
+
 export function parseConditionExpr(
   tokens: NormalizedToken[],
   context: ParseContext = {}
@@ -496,75 +534,149 @@ export function parseConditionExpr(
   const necSuffIndex = findKwIndex(tokens, 'NECSUFF');
 
   if (necSuffIndex !== -1) {
-    // A NECSUFF B → A ↔ B
-    const leftTokens = tokens.slice(0, necSuffIndex);
-    const rightTokens = tokens.slice(necSuffIndex + 1);
+    // A NECSUFF B → A ↔ B (or ∀x (A(x) ↔ B(x)) when not propositional)
+    let leftTokens = tokens.slice(0, necSuffIndex);
+    let rightTokens = tokens.slice(necSuffIndex + 1);
+    // Strip trailing "is", "a", "an", "the" from left
+    while (
+      leftTokens.length > 0 &&
+      leftTokens[leftTokens.length - 1]!.kind === 'ID' &&
+      ['is', 'a', 'an', 'the'].includes(leftTokens[leftTokens.length - 1]!.value.toLowerCase())
+    ) {
+      leftTokens = leftTokens.slice(0, -1);
+    }
+    if (rightTokens.length > 0 && rightTokens[0]!.kind === 'ID' && rightTokens[0]!.value.toLowerCase() === 'for') {
+      rightTokens = rightTokens.slice(1);
+    }
+    if (
+      rightTokens.length >= 2 &&
+      rightTokens[0]!.kind === 'ID' &&
+      rightTokens[0]!.value.toLowerCase() === 'condition' &&
+      rightTokens[1]!.kind === 'ID' &&
+      rightTokens[1]!.value.toLowerCase() === 'to'
+    ) {
+      rightTokens = rightTokens.slice(2);
+    }
 
     const leftExpr = parseClause(leftTokens, context);
     const rightExpr = parseClause(rightTokens, context);
     if (!leftExpr || !rightExpr) return null;
 
+    const body: Expr = {
+      kind: 'binary',
+      op: 'iff',
+      left: leftExpr.expr,
+      right: rightExpr.expr,
+    };
+    if (isPropositionalAtom(leftExpr.expr) && isPropositionalAtom(rightExpr.expr)) {
+      return { expr: body, remainingTokens: [] };
+    }
     return {
       expr: {
         kind: 'quantifier',
         q: 'forall',
         var: defaultVar,
-        body: {
-          kind: 'binary',
-          op: 'iff',
-          left: leftExpr.expr,
-          right: rightExpr.expr,
-        },
+        body,
       },
       remainingTokens: [],
     };
   }
 
   if (suffIndex !== -1 && suffIndex > 0) {
-    // A SUFFICIENT B → ∀x (A(x) → B(x))
-    const leftTokens = tokens.slice(0, suffIndex);
-    const rightTokens = tokens.slice(suffIndex + 1);
+    // A SUFFICIENT B → A → B (or ∀x (A(x) → B(x)) when not propositional)
+    let leftTokens = tokens.slice(0, suffIndex);
+    let rightTokens = tokens.slice(suffIndex + 1);
+    // Strip trailing "is", "a", "an", "the" from left (e.g. "being a uatx student is a" → "being a uatx student")
+    while (
+      leftTokens.length > 0 &&
+      leftTokens[leftTokens.length - 1]!.kind === 'ID' &&
+      ['is', 'a', 'an', 'the'].includes(leftTokens[leftTokens.length - 1]!.value.toLowerCase())
+    ) {
+      leftTokens = leftTokens.slice(0, -1);
+    }
+    // Strip preposition "for" and optional "condition to" before the right-hand side
+    if (rightTokens.length > 0 && rightTokens[0]!.kind === 'ID' && rightTokens[0]!.value.toLowerCase() === 'for') {
+      rightTokens = rightTokens.slice(1);
+    }
+    if (
+      rightTokens.length >= 2 &&
+      rightTokens[0]!.kind === 'ID' &&
+      rightTokens[0]!.value.toLowerCase() === 'condition' &&
+      rightTokens[1]!.kind === 'ID' &&
+      rightTokens[1]!.value.toLowerCase() === 'to'
+    ) {
+      rightTokens = rightTokens.slice(2);
+    }
 
     const leftExpr = parseClause(leftTokens, context);
     const rightExpr = parseClause(rightTokens, context);
     if (!leftExpr || !rightExpr) return null;
 
+    const body: Expr = {
+      kind: 'binary',
+      op: 'impl',
+      left: leftExpr.expr,
+      right: rightExpr.expr,
+    };
+    if (isPropositionalAtom(leftExpr.expr) && isPropositionalAtom(rightExpr.expr)) {
+      return { expr: body, remainingTokens: [] };
+    }
     return {
       expr: {
         kind: 'quantifier',
         q: 'forall',
         var: defaultVar,
-        body: {
-          kind: 'binary',
-          op: 'impl',
-          left: leftExpr.expr,
-          right: rightExpr.expr,
-        },
+        body,
       },
       remainingTokens: [],
     };
   }
 
   if (necIndex !== -1 && necIndex > 0) {
-    // A NECESSARY B → ∀x (B(x) → A(x)) (reversed!)
-    const leftTokens = tokens.slice(0, necIndex);
-    const rightTokens = tokens.slice(necIndex + 1);
+    // A NECESSARY B → B → A (reversed!) (or ∀x (B(x) → A(x)) when not propositional)
+    let leftTokens = tokens.slice(0, necIndex);
+    let rightTokens = tokens.slice(necIndex + 1);
+    // Strip trailing "is", "a", "an", "the" from left
+    while (
+      leftTokens.length > 0 &&
+      leftTokens[leftTokens.length - 1]!.kind === 'ID' &&
+      ['is', 'a', 'an', 'the'].includes(leftTokens[leftTokens.length - 1]!.value.toLowerCase())
+    ) {
+      leftTokens = leftTokens.slice(0, -1);
+    }
+    // Strip preposition "for" and optional "condition to" before the right-hand side
+    if (rightTokens.length > 0 && rightTokens[0]!.kind === 'ID' && rightTokens[0]!.value.toLowerCase() === 'for') {
+      rightTokens = rightTokens.slice(1);
+    }
+    if (
+      rightTokens.length >= 2 &&
+      rightTokens[0]!.kind === 'ID' &&
+      rightTokens[0]!.value.toLowerCase() === 'condition' &&
+      rightTokens[1]!.kind === 'ID' &&
+      rightTokens[1]!.value.toLowerCase() === 'to'
+    ) {
+      rightTokens = rightTokens.slice(2);
+    }
 
     const leftExpr = parseClause(leftTokens, context);
     const rightExpr = parseClause(rightTokens, context);
     if (!leftExpr || !rightExpr) return null;
 
+    const body: Expr = {
+      kind: 'binary',
+      op: 'impl',
+      left: rightExpr.expr, // Reversed!
+      right: leftExpr.expr,
+    };
+    if (isPropositionalAtom(leftExpr.expr) && isPropositionalAtom(rightExpr.expr)) {
+      return { expr: body, remainingTokens: [] };
+    }
     return {
       expr: {
         kind: 'quantifier',
         q: 'forall',
         var: defaultVar,
-        body: {
-          kind: 'binary',
-          op: 'impl',
-          left: rightExpr.expr, // Reversed!
-          right: leftExpr.expr,
-        },
+        body,
       },
       remainingTokens: [],
     };
@@ -592,6 +704,26 @@ export function parseConditionalExpr(
         expr: {
           kind: 'binary',
           op: 'iff',
+          left: leftExpr.expr,
+          right: rightExpr.expr,
+        },
+        remainingTokens: [],
+      };
+    }
+  }
+
+  // IMPLIES: A IMPLIES B → A → B
+  const impliesIndex = findKwIndex(tokens, 'IMPLIES');
+  if (impliesIndex !== -1 && impliesIndex > 0 && impliesIndex < tokens.length - 1) {
+    const left = tokens.slice(0, impliesIndex);
+    const right = tokens.slice(impliesIndex + 1);
+    const leftExpr = parseClause(left, context);
+    const rightExpr = parseClause(right, context);
+    if (leftExpr && rightExpr) {
+      return {
+        expr: {
+          kind: 'binary',
+          op: 'impl',
           left: leftExpr.expr,
           right: rightExpr.expr,
         },
@@ -860,9 +992,18 @@ export function parseClause(
     );
   }
 
-  // 3. Try relations
+  const hasOrOrAnd = tokens.some(
+    (t) => t.kind === 'KW' && (t.value === 'OR' || t.value === 'AND')
+  );
+  // 3a. Try binary (OR/AND) before relation when present, so "foo > 0 or foo = 0" parses as binary
+  if (hasOrOrAnd) {
+    const binaryExpr = parseBinaryOperators(tokens, context);
+    if (binaryExpr) return binaryExpr;
+  }
+
+  // 3b. Try relations (only accept if no leftover tokens)
   const relExpr = parseRelationExpr(tokens, context);
-  if (relExpr) return relExpr;
+  if (relExpr && relExpr.remainingTokens.length === 0) return relExpr;
 
   // 4. Try conditions (sufficient/necessary)
   const condExpr = parseConditionExpr(tokens, context);
@@ -872,9 +1013,11 @@ export function parseClause(
   const conditionalExpr = parseConditionalExpr(tokens, context);
   if (conditionalExpr) return conditionalExpr;
 
-  // 6. Try binary operators
-  const binaryExpr = parseBinaryOperators(tokens, context);
-  if (binaryExpr) return binaryExpr;
+  // 6. Try binary operators (if not already tried above)
+  if (!hasOrOrAnd) {
+    const binaryExpr = parseBinaryOperators(tokens, context);
+    if (binaryExpr) return binaryExpr;
+  }
 
   // 7. Try negation
   const negExpr = parseNegation(tokens, context);

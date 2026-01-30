@@ -180,6 +180,8 @@ export function normalizeRelation(phrase: string): string | null {
 const STORAGE_KEY = 'logic-app:phrase-predicate-mappings';
 
 const DEFAULT_PHRASE_PREDICATES: Record<string, string> = {
+  'being a tomato': 'Tomato',
+  'being a fruit': 'Fruit',
   'being a uatx student': 'UATXStudent',
   'being a student': 'Student',
   'getting a student id': 'StudentID',
