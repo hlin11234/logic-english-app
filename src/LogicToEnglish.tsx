@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { parse, getParseError } from './parser/Parser';
 import type { Expr } from './parser/Ast';
+import { astToTree } from './parser/astDisplay';
 import { LogicEditor } from './components/LogicEditor';
 import { EnglishRenderer } from './components/EnglishRenderer';
 import { LogicTraps } from './components/LogicTraps';
+import { StepByStepExplanation } from './components/StepByStepExplanation';
+import './components/EnglishRenderer.css';
 
 export function LogicToEnglish() {
   const [input, setInput] = useState('∀x ( P(x) → Q(x) )');
@@ -55,9 +58,22 @@ export function LogicToEnglish() {
       </div>
       <div className="panel">
         <div className="panel-header">Output</div>
-        <div className="panel-body">
-          <LogicTraps ast={ast} input={input} />
-          <EnglishRenderer ast={ast} parseError={!!parseError} />
+        <div className="panel-body output-split">
+          <div className="output-left">
+            <LogicTraps ast={ast} input={input} />
+            {ast && <StepByStepExplanation ast={ast} />}
+            {ast && (
+              <div className="er-section output-structure">
+                <div className="panel-header">Structure</div>
+                <div className="panel-body">
+                  <pre className="er-tree pre-wrap">{astToTree(ast)}</pre>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="output-right">
+            <EnglishRenderer ast={ast} parseError={!!parseError} onlyOutput />
+          </div>
         </div>
       </div>
     </div>

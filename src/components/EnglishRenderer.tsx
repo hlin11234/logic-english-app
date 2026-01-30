@@ -7,18 +7,61 @@ import './EnglishRenderer.css';
 interface EnglishRendererProps {
   ast: Expr | null;
   parseError: boolean;
+  /** When true, render only the English output block (for right column). */
+  onlyOutput?: boolean;
 }
 
-export function EnglishRenderer({ ast, parseError }: EnglishRendererProps) {
+function EnglishBlock({
+  ast,
+  parseError,
+}: {
+  ast: Expr | null;
+  parseError: boolean;
+}) {
+  if (parseError) {
+    return (
+      <div className="er-section">
+        <div className="panel-header">English</div>
+        <div className="panel-body">
+          <p className="muted">Fix parse errors in the logic input to see English output.</p>
+        </div>
+      </div>
+    );
+  }
+  if (!ast) {
+    return (
+      <div className="er-section">
+        <div className="panel-header">English</div>
+        <div className="panel-body">
+          <p className="muted">Enter a formula to see its English translation.</p>
+        </div>
+      </div>
+    );
+  }
+  const english = toEnglish(ast);
+  return (
+    <div className="er-section">
+      <div className="panel-header">English</div>
+      <div className="panel-body">
+        <p className="er-output">{english}</p>
+      </div>
+    </div>
+  );
+}
+
+export function EnglishRenderer({ ast, parseError, onlyOutput }: EnglishRendererProps) {
+  if (onlyOutput) {
+    return (
+      <div className="english-renderer english-renderer--only">
+        <EnglishBlock ast={ast} parseError={parseError} />
+      </div>
+    );
+  }
+
   if (parseError) {
     return (
       <div className="english-renderer">
-        <div className="er-section">
-          <div className="panel-header">English</div>
-          <div className="panel-body">
-            <p className="muted">Fix parse errors in the logic input to see English output.</p>
-          </div>
-        </div>
+        <EnglishBlock ast={null} parseError={true} />
         <div className="er-section">
           <div className="panel-header">Structure</div>
           <div className="panel-body">
@@ -32,12 +75,7 @@ export function EnglishRenderer({ ast, parseError }: EnglishRendererProps) {
   if (!ast) {
     return (
       <div className="english-renderer">
-        <div className="er-section">
-          <div className="panel-header">English</div>
-          <div className="panel-body">
-            <p className="muted">Enter a formula to see its English translation.</p>
-          </div>
-        </div>
+        <EnglishBlock ast={null} parseError={false} />
         <div className="er-section">
           <div className="panel-header">Structure</div>
           <div className="panel-body">
@@ -48,18 +86,12 @@ export function EnglishRenderer({ ast, parseError }: EnglishRendererProps) {
     );
   }
 
-  const english = toEnglish(ast);
   const structure = astToTree(ast);
 
   return (
     <div className="english-renderer">
       <StepByStepExplanation ast={ast} />
-      <div className="er-section">
-        <div className="panel-header">English</div>
-        <div className="panel-body">
-          <p className="er-output">{english}</p>
-        </div>
-      </div>
+      <EnglishBlock ast={ast} parseError={false} />
       <div className="er-section">
         <div className="panel-header">Structure</div>
         <div className="panel-body">
