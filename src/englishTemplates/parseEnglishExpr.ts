@@ -58,10 +58,9 @@ export function extractQuantifierInfo(
   }
 
   // Try to find domain phrase: "real numbers", "integers", etc.
+  // Prefer longer matches so "real number" wins over "real" (avoid taking "number" as variable).
   let domainEnd = i;
-  
-  // Try to match known domain phrases (1-3 words) made of IDs
-  for (let len = 1; len <= 3 && i + len <= tokens.length; len++) {
+  for (let len = 3; len >= 1 && i + len <= tokens.length; len--) {
     const slice = tokens.slice(i, i + len);
     if (!slice.every((t) => t.kind === 'ID')) continue;
     const phrase = slice.map((t) => t.value).join(' ');
@@ -105,8 +104,8 @@ export function extractQuantifierInfo(
     let tailDomain: Domain | null = null;
     let tailEnd = j;
 
-    // Try to match known domain phrases (1-3 words) after "in"
-    for (let len = 1; len <= 3 && j + len <= tokens.length; len++) {
+    // Try longer domain phrases first (e.g. "real numbers" before "real")
+    for (let len = 3; len >= 1 && j + len <= tokens.length; len--) {
       const slice = tokens.slice(j, j + len);
       if (!slice.every((t) => t.kind === 'ID')) continue;
       const phrase = slice.map((t) => t.value).join(' ');
@@ -192,8 +191,8 @@ function parseQuantifierHeader(tokens: NormalizedToken[], i: number): Quantifier
   let domain: Domain | null = null;
   let domainEnd = j;
 
-  // Try to match known domain phrases (1-3 words)
-  for (let len = 1; len <= 3 && j + len <= tokens.length; len++) {
+  // Try longer domain phrases first so "real number" wins over "real"
+  for (let len = 3; len >= 1 && j + len <= tokens.length; len--) {
     const slice = tokens.slice(j, j + len);
     if (!slice.every((t) => t.kind === 'ID')) continue;
     const phrase = slice.map((t) => t.value).join(' ');
