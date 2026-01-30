@@ -164,7 +164,7 @@ class ParserState {
       }
       // Single term - treat as variable predicate for now
       if (left.kind === 'var') {
-        return { kind: 'predicate', name: left.name, args: [left.name] };
+        return { kind: 'predicate', name: left.name, args: [left] };
       }
       const t = this.current;
       throw new ParseError(

@@ -89,10 +89,12 @@ function checkQuantifierOrder(expr: Expr, warnings: TrapWarning[]): void {
   if (expr.kind === 'quantifier' && expr.body.kind === 'quantifier') {
     const outer = expr;
     const inner = expr.body;
+    const outerPhrase = outer.q === 'forall' ? 'for every' : 'there is some';
+    const innerPhrase = inner.q === 'forall' ? 'for every' : 'there is some';
     warnings.push({
       id: 'quantifier-order',
       title: 'Quantifier Order Matters',
-      message: `You have ${outer.q === 'forall' ? '∀' : '∃'}${outer.var} ${inner.q === 'forall' ? '∀' : '∃'}${inner.var}. The order matters! ${outer.q === 'forall' ? '∀' : '∃'}${outer.var} ${inner.q === 'forall' ? '∀' : '∃'}${inner.var} means "for ${outer.q === 'forall' ? 'every' : 'some'} ${outer.var}, there ${inner.q === 'forall' ? 'is every' : 'is some'} ${inner.var}". Swapping the order changes the meaning.`,
+      message: `You have ${outer.q === 'forall' ? '∀' : '∃'}${outer.var} ${inner.q === 'forall' ? '∀' : '∃'}${inner.var}. The order matters! This means "${outerPhrase} ${outer.var}, ${innerPhrase} ${inner.var}". Swapping the order changes the meaning.`,
       severity: 'info',
     });
   }
@@ -171,10 +173,10 @@ function isSimplePredicate(expr: Expr): boolean {
 
 function isPredicateWithVar(expr: Expr, varName: string): boolean {
   if (expr.kind === 'predicate') {
-    return expr.args.length === 1 && expr.args[0] === varName;
+    return expr.args.length === 1 && expr.args[0]?.kind === 'var' && expr.args[0].name === varName;
   }
   if (expr.kind === 'negation' && expr.body.kind === 'predicate') {
-    return expr.body.args.length === 1 && expr.body.args[0] === varName;
+    return expr.body.args.length === 1 && expr.body.args[0]?.kind === 'var' && expr.body.args[0].name === varName;
   }
   return false;
 }

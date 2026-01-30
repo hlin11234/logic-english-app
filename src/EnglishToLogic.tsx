@@ -15,7 +15,7 @@ const EXAMPLES = [
   'there exists an integer n such that n >= 0 and n < 5',
   'for every natural number n, there exists a natural number m such that m > n',
   'for all integers m, m is not equal to m+1',
-  'all real numbers x are positive or negative',
+  'for every real number x, x is greater than or equal to x',
   'any integer n is either even or odd',
   
   // Relations with natural language

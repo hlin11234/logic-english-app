@@ -11,9 +11,9 @@ const SUPPORTED_STRUCTURES: StructureExample[] = [
     category: 'Quantifiers',
     examples: [
       'for all real numbers x, there exists a real number y such that x < y',
-      'for every integer n, n is positive or negative',
+      'for every integer n, n equals n',
       'there exists an integer m such that m > 0',
-      'all real numbers x are greater than 0',
+      'there exists a real number x such that x > 0',
     ],
   },
   {

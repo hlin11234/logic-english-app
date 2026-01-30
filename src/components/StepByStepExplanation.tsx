@@ -47,7 +47,7 @@ function exprToFormula(expr: Expr): string {
       const op = expr.op === 'and' ? '∧' : expr.op === 'or' ? '∨' : expr.op === 'impl' ? '→' : '↔';
       return `( ${exprToFormula(expr.left)} ) ${op} ( ${exprToFormula(expr.right)} )`;
     case 'predicate':
-      return `${expr.name}(${expr.args.join(', ')})`;
+      return `${expr.name}(${expr.args.map(termToString).join(', ')})`;
     case 'relation':
       return `${termToString(expr.left)} ${expr.op} ${termToString(expr.right)}`;
   }
@@ -168,9 +168,13 @@ function generateExplanation(expr: Expr, startStep: number): ExplanationStep[] {
       }
 
       case 'predicate': {
+        const argStr = expr.args.map(termToString).join(', ');
+        const appliedTo = expr.args.length === 1
+          ? termToString(expr.args[0]!)
+          : expr.args.map(termToString).join(' and ');
         steps.push({
           step: currentStep++,
-          text: `The predicate ${expr.name}(${expr.args.join(', ')}) represents a property applied to ${expr.args.length === 1 ? expr.args[0] : expr.args.join(' and ')}.`,
+          text: `The predicate ${expr.name}(${argStr}) represents a property applied to ${appliedTo}.`,
         });
         break;
       }
